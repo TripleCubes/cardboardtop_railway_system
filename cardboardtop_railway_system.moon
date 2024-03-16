@@ -68,6 +68,8 @@ local station_draw
 
 local train_new
 local train_update
+local train_get_path
+local recursion_train_get_path
 local train_check_rm
 local train_draw
 
@@ -80,6 +82,8 @@ local vecmul
 local vecdiv
 local vecdivdiv
 local vecmod
+local veclength
+local veclengthsqr
 local vecparam
 
 local rect_collide
@@ -88,6 +92,7 @@ local in_rect
 local rndi
 local rndf
 local dice
+local list_shuffle
 
 WINDOW_W = 240
 WINDOW_H = 136
@@ -313,14 +318,14 @@ cursor_controls = ->
 	if building_btn_selected.building_type_tag == BUILDING_RAIL
 		if btn(4)
 			rail_new(cursor.pos)
-		if btn(5)
-			rail_rm_xy(pos)
 
 	if building_btn_selected.building_type_tag == BUILDING_STATION
 		if btn(4)
 			station_new(cursor.pos)
-		if btn(5)
-			station_rm_xy(pos)
+			
+	if btn(5)
+		rail_rm_xy(pos)
+		station_rm_xy(pos)
 		
 dpad_camera_update = ->
 	if btn(0)
@@ -842,11 +847,79 @@ station_draw = (station) ->
 
 train_new = (pos) ->
 	train = entity_new(ENTITY_TRAIN, pos, vecnew(8, 8), train_update, train_draw)
+	train.path = train_get_path(train)
 	return train
 
 train_update = (i, train) ->
-	train.pos.x += 0.5
+	grid_pos = train.path[#train.path]
+	pos = vecmul(grid_pos, 8)
+	diff = vecsub(pos, train.pos)
+	move = vecnew(0, 0)
+	if diff.x > 0
+		move.x = 0.5
+	elseif diff.x < 0
+		move.x = -0.5
+	elseif diff.y > 0
+		move.y = 0.5
+	elseif diff.y < 0
+		move.y = -0.5
+
+	if veclengthsqr(diff) < 0.1
+		table.remove(train.path, #train.path)
+		
+	train.pos = vecadd(train.pos, move)
+
 	train_check_rm(i, train)
+
+train_get_path = (train) ->
+	grid_pos = vecdivdiv(train.pos, 8)
+	path = {}
+	grid = {}
+	for iy = 1, map_sz.y
+		table.insert(grid, {})
+		for ix = 1, map_sz.x
+			table.insert(grid[iy], false)
+	
+	recursion_train_get_path(path, grid, grid_pos)
+	return path
+	
+recursion_train_get_path = (path, grid, xy) ->
+	grid[xy.y][xy.x] = true
+
+	dir_list = {
+		vecnew(-1, 0),
+		vecnew(1, 0),
+		vecnew(0, -1),
+		vecnew(0, 1),
+	}
+	dir_list = list_shuffle(dir_list)
+
+	for i, v in ipairs(dir_list)
+		next_pos = vecadd(xy, v)
+
+		if next_pos.x < 1 or next_pos.y < 1 or next_pos.x > map_sz.x or next_pos.y > map_sz.y
+			continue
+
+		if grid[next_pos.y][next_pos.x] == true
+			continue
+
+		if next_pos.x == map_sz.x
+			for j, v2 in ipairs(entity_list)
+				if v2.type_tag != ENTITY_STATION
+					continue
+				if not vecequals(next_pos, vecdivdiv(v2.pos, 8))
+					continue
+				table.insert(path, next_pos)
+				return true
+
+		if rail_grid[next_pos.y][next_pos.x] == -1
+			continue
+		
+		if recursion_train_get_path(path, grid, next_pos) == true
+			table.insert(path, next_pos)
+			return true
+
+	return false
 
 train_check_rm = (i, train) ->
 	grid_pos = vecdivdiv(train.pos, 8)
@@ -854,7 +927,7 @@ train_check_rm = (i, train) ->
 	if rail_grid[grid_pos.y][grid_pos.x] == -1
 		table.remove(entity_list, i)
 
-	for i, v in ipairs(entity_list)
+	for j, v in ipairs(entity_list)
 		if v.type_tag != ENTITY_STATION
 			continue
 		if v.pos.x == 8
@@ -914,6 +987,12 @@ vecdivdiv = (vec, n) ->
 vecmod = (vec, n) ->
 	return { x: vec.x % n, y: vec.y % n }
 
+veclength = (vec) ->
+	return math.sqrt(vec.x*vec.x + vec.y*vec.y)
+
+veclengthsqr = (vec) ->
+	return vec.x*vec.x + vec.y*vec.y
+
 vecparam = (vec) ->
 	return vec.x, vec.y
 
@@ -948,6 +1027,15 @@ rndi = (a, b) ->
 dice = (a, b) ->
 	rnd = rndi(1, b)
 	return rnd >= 1 and rnd <= a
+
+list_shuffle = (list) ->
+	result = {}
+	list_sz = #list
+	for i = 1, list_sz
+		rnd = rndi(1, list_sz - i + 1)
+		table.insert(result, list[rnd])
+		table.remove(list, rnd)
+	return result
 
 -- <TILES>
 -- 001:ddddddddeeeeeeee0ff00ff00ee00ee00ee00ee0ddddddddeeeeeeee0ff00ff0
