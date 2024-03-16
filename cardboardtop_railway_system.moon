@@ -63,7 +63,13 @@ local station_new
 local station_rm
 local station_rm_xy
 local station_update
+local station_create_train
 local station_draw
+
+local train_new
+local train_update
+local train_check_rm
+local train_draw
 
 local vecequals
 local vecnew
@@ -79,6 +85,10 @@ local vecparam
 local rect_collide
 local in_rect
 
+local rndi
+local rndf
+local dice
+
 WINDOW_W = 240
 WINDOW_H = 136
 
@@ -89,6 +99,7 @@ RIGHT = 3
 
 ENTITY_RAIL = 0
 ENTITY_STATION = 1
+ENTITY_TRAIN = 2
 
 rail_grid = {}
 RAIL_HORIZONTAL = 0
@@ -750,12 +761,111 @@ station_rm_xy = (grid_pos) ->
 		return
 
 station_update = (i, station) ->
+	station_create_train(station)
+
 	if station.rm_next_frame
 		table.remove(entity_list, i)
+
+station_create_train = (station) ->
+	if t % (60*3) != 0
+		return
+
+	grid_pos = vecdivdiv(station.pos, 8)
+	x = grid_pos.x
+	y = grid_pos.y
+	right = false
+	up = false
+	down = false
+
+	if x + 1 <= map_sz.x
+		if rail_grid[y][x+1] != -1
+			right = true
+	if y - 1 >= 1
+		if rail_grid[y-1][x] != -1
+			up = true
+	if y + 1 <= map_sz.y
+		if rail_grid[y+1][x] != -1
+			down = true
+
+	total = 0
+	if right
+		total += 1
+	if up
+		total += 1
+	if down
+		total += 1
+	choose_right = false
+	choose_up = false
+	choose_down = false
+	if total == 1
+		if right
+			choose_right = true
+		if up
+			choose_up = true
+		if down
+			choose_down = true
+	if total == 2
+		if right and up
+			if dice(1, 2)
+				choose_right = true
+			else
+				choose_up = true
+		if right and down
+			if dice(1, 2)
+				choose_right = true
+			else
+				choose_down = true
+		if up and down
+			if dice(1, 2)
+				choose_up = true
+			else
+				choose_down = true
+	if total == 3
+		rnd = rndi(1, 3)
+		if rnd == 1
+			choose_right = true
+		elseif rnd == 2
+			choose_up = true
+		elseif rnd == 3
+			choose_down = true
+	
+	if choose_right
+		train_new(vecnew(station.pos.x + 8, station.pos.y))
+	elseif choose_up
+		train_new(vecnew(station.pos.x, station.pos.y - 8))
+	elseif choose_down
+		train_new(vecnew(station.pos.x, station.pos.y + 8))
 
 station_draw = (station) ->
 	draw_pos = get_draw_pos(station.pos)
 	spr(9, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2)
+
+train_new = (pos) ->
+	train = entity_new(ENTITY_TRAIN, pos, vecnew(8, 8), train_update, train_draw)
+	return train
+
+train_update = (i, train) ->
+	train.pos.x += 0.5
+	train_check_rm(i, train)
+
+train_check_rm = (i, train) ->
+	grid_pos = vecdivdiv(train.pos, 8)
+
+	if rail_grid[grid_pos.y][grid_pos.x] == -1
+		table.remove(entity_list, i)
+
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_STATION
+			continue
+		if v.pos.x == 8
+			continue
+		if not rect_collide(train.pos, train.sz, v.pos, v.sz)
+			continue
+		table.remove(entity_list, i)
+
+train_draw = (train) ->
+	draw_pos = get_draw_pos(train.pos)
+	spr(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2)
 
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
@@ -829,6 +939,16 @@ in_rect = (pos, rect_pos, rect_sz) ->
 		return false
 	return true
 
+rndf = (a, b) ->
+	return math.random() * (b - a) + a
+
+rndi = (a, b) ->
+	return math.random(a, b)
+
+dice = (a, b) ->
+	rnd = rndi(1, b)
+	return rnd >= 1 and rnd <= a
+
 -- <TILES>
 -- 001:ddddddddeeeeeeee0ff00ff00ee00ee00ee00ee0ddddddddeeeeeeee0ff00ff0
 -- 002:0d0000d0edeeeedeedeeeedefdffffdf0d0000d0edeeeedeedeeeedefdffffdf
@@ -839,10 +959,12 @@ in_rect = (pos, rect_pos, rect_sz) ->
 -- 007:dd0000ddeee00eeefeeeeeef0feeeef000feef00ddddddddeeeeeeee0ff00ff0
 -- 008:dd0000ddeee00eeefeeeeeef0feeeef000feee00ddefeeddedeffede0df00fd0
 -- 009:00000000000000000aaaaaa0aaaa9aaaaaaaa9aaa999999aaaaaa9aaaaaa9aaa
+-- 010:0000000000000000000000000000000000000000aaaaaaaaaa9999aaa999999a
 -- 016:000000000000e000000ee00000eee000000ee0000000e0000000000000000000
 -- 017:00000000000e000000eee0000eeeee0000eee00000eee0000000000000000000
 -- 018:00000000000e000000eee0000ee0ee0000eee000000e00000000000000000000
 -- 025:aaaaaaaaa999999a99999999999999999cccccc99cccccc99999999999999999
+-- 026:a999999aa999999aaa9999aaaaaaaaaa99999999ccc99cccccc99ccc99999999
 -- 032:000000000000000000000000000000000000dddd0000eeee00000ff000000ee0
 -- 033:00000000000000000000000000000000dddd0000eeee00000ff000000ee00000
 -- 034:000000000000000000000000000000000000000a000000a900000a9c0000aaac
