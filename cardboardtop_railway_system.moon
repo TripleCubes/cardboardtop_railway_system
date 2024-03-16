@@ -48,6 +48,8 @@ local entity_new
 local entity_list_update
 local entity_list_draw
 
+local can_place
+
 local rail_new
 local rail_rm
 local rail_rm_xy
@@ -57,6 +59,13 @@ local have_rail
 local rail_update
 local rail_draw
 
+local station_new
+local station_rm
+local station_rm_xy
+local station_update
+local station_draw
+
+local vecequals
 local vecnew
 local veccopy
 local vecadd
@@ -79,6 +88,7 @@ LEFT = 2
 RIGHT = 3
 
 ENTITY_RAIL = 0
+ENTITY_STATION = 1
 
 rail_grid = {}
 RAIL_HORIZONTAL = 0
@@ -121,6 +131,7 @@ btn_switched = false
 
 BUILDING_RAIL = 0
 BUILDING_RESTAURANT = 1
+BUILDING_STATION = 2
 building_btn_list = {}
 building_btn_selected = nil
 
@@ -214,11 +225,18 @@ create_menu_build = ->
 	)
 	btn_restaurant.building_type_tag = BUILDING_RESTAURANT
 
-	building_btn_list = { btn_rail, btn_restaurant }
-	building_btn_connect(2, 1)
+	x += CARD_BTN_SPACING_SZ.x
+	btn_station = btn_new(vecnew(x, y), CARD_BTN_SZ, 36, vecnew(2, 2), '', (btn) ->
+		select_building_btn(btn)
+	)
+	btn_station.building_type_tag = BUILDING_STATION
+
+	building_btn_list = { btn_rail, btn_restaurant, btn_station }
+	building_btn_connect(3, 1)
 
 	menu_add_ui(menu, btn_rail)
 	menu_add_ui(menu, btn_restaurant)
+	menu_add_ui(menu, btn_station)
 
 	nav_btn_list = create_nav(menu)
 	nav_btn_list[2].highlight = true
@@ -279,12 +297,19 @@ cursor_controls = ->
 	if dpad_mode != DPAD_CURSOR
 		return
 
+	pos = vecdivdiv(cursor.pos, 8)
+
 	if building_btn_selected.building_type_tag == BUILDING_RAIL
 		if btn(4)
 			rail_new(cursor.pos)
 		if btn(5)
-			pos = vecdivdiv(cursor.pos, 8)
-			rail_rm_xy(pos.x, pos.y)
+			rail_rm_xy(pos)
+
+	if building_btn_selected.building_type_tag == BUILDING_STATION
+		if btn(4)
+			station_new(cursor.pos)
+		if btn(5)
+			station_rm_xy(pos)
 		
 dpad_camera_update = ->
 	if btn(0)
@@ -534,11 +559,22 @@ btn_connect = (btn1, btn2, dir) ->
 		btn1.right = btn2
 		btn2.left = btn1
 
+can_place = (grid_pos, sz) ->
+	if rail_grid[grid_pos.y][grid_pos.x] != -1
+		return false
+	
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_STATION
+			continue
+		pos = vecmul(grid_pos, 8)
+		if rect_collide(v.pos, v.sz, pos, sz)
+			return false
+
+	return true
+
 rail_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
-	if grid_pos.x < 1 or grid_pos.x > map_sz.x or grid_pos.y < 1 or grid_pos.y > map_sz.y
-		return
-	if rail_grid[grid_pos.y][grid_pos.x] != -1
+	if not can_place(grid_pos, vecnew(8, 8))
 		return
 
 	rail = entity_new(ENTITY_RAIL, pos, vecnew(8, 8), rail_update, rail_draw)
@@ -546,7 +582,6 @@ rail_new = (pos) ->
 	rail.rm_next_fram = false
 
 	rail_grid[grid_pos.y][grid_pos.x] = rail
-
 	set_rail_type_tag(grid_pos.x, grid_pos.y)
 	update_surround_rail_type_tag(grid_pos.x, grid_pos.y)
 
@@ -558,7 +593,9 @@ rail_rm = (rail) ->
 	rail_grid[grid_pos.y][grid_pos.x] = -1
 	update_surround_rail_type_tag(grid_pos.x, grid_pos.y)
 
-rail_rm_xy = (x, y) ->
+rail_rm_xy = (grid_pos) ->
+	x = grid_pos.x
+	y = grid_pos.y
 	if rail_grid[y][x] != -1
 		rail_grid[y][x].rm_next_frame = true
 		rail_grid[y][x] = -1
@@ -681,6 +718,45 @@ rail_draw = (rail) ->
 
 	spr(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1)
 
+station_new = (pos) ->
+	grid_pos = vecdivdiv(pos, 8)
+	if not can_place(grid_pos, vecnew(8, 8))
+		return
+
+	if cursor.pos.x != 8 and cursor.pos.x != map_sz.x * 8
+		return
+
+	station = entity_new(ENTITY_STATION, pos, vecnew(8, 8), station_update, station_draw)
+	station.rm_next_frame = false
+	return station
+
+station_rm = (station) ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_STATION
+			continue
+		if station != v
+			continue
+		station.rm_next_frame = true
+		return
+
+station_rm_xy = (grid_pos) ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_STATION
+			continue
+		v_grid_pos = vecdivdiv(v.pos, 8)
+		if not vecequals(grid_pos, v_grid_pos)
+			continue
+		v.rm_next_frame = true
+		return
+
+station_update = (i, station) ->
+	if station.rm_next_frame
+		table.remove(entity_list, i)
+
+station_draw = (station) ->
+	draw_pos = get_draw_pos(station.pos)
+	spr(9, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2)
+
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
 		type_tag: type_tag,
@@ -700,6 +776,9 @@ entity_list_update = () ->
 entity_list_draw = () ->
 	for i, v in ipairs(entity_list)
 		v.draw(v)
+
+vecequals = (veca, vecb) ->
+	return veca.x == vecb.x and veca.y == vecb.y
 
 vecnew = (x, y) ->
 	return { x: x, y: y }
@@ -759,17 +838,23 @@ in_rect = (pos, rect_pos, rect_sz) ->
 -- 006:ddddddddeeeeeeee0ee00ee00eeeeee00feeeef0ddfeeeddedffeede0df0fed0
 -- 007:dd0000ddeee00eeefeeeeeef0feeeef000feef00ddddddddeeeeeeee0ff00ff0
 -- 008:dd0000ddeee00eeefeeeeeef0feeeef000feee00ddefeeddedeffede0df00fd0
+-- 009:00000000000000000aaaaaa0aaaa9aaaaaaaa9aaa999999aaaaaa9aaaaaa9aaa
 -- 016:000000000000e000000ee00000eee000000ee0000000e0000000000000000000
 -- 017:00000000000e000000eee0000eeeee0000eee00000eee0000000000000000000
 -- 018:00000000000e000000eee0000ee0ee0000eee000000e00000000000000000000
+-- 025:aaaaaaaaa999999a99999999999999999cccccc99cccccc99999999999999999
 -- 032:000000000000000000000000000000000000dddd0000eeee00000ff000000ee0
 -- 033:00000000000000000000000000000000dddd0000eeee00000ff000000ee00000
--- 034:000000000000000000000000000000cc00000cc40000cc43000cc43c000c444c
--- 035:000000000000000000000000cc0000004cc0000034cc0000c34cc000c444c000
+-- 034:000000000000000000000000000000000000000a000000a900000a9c0000aaac
+-- 035:00000000000000000000000000000000a00000009a000000c9a00000caaa0000
+-- 036:00000000000000000000000000000000000000aa00000aaa00000aaa00000aaa
+-- 037:00000000000000000000000000000000aa000000aaa00000aaa00000aaa00000
 -- 048:00000ee00000dddd0000eeee00000ff000000000000000000000000000000000
 -- 049:0ee00000dddd0000eeee00000ff0000000000000000000000000000000000000
--- 050:000cc3330000c4440000c4dd0000c4dd0000cccc000000000000000000000000
--- 051:333cc000444c00004c4c0000444c0000cccc0000000000000000000000000000
+-- 050:0000099900000aaa00000aee00000aee00000000000000000000000000000000
+-- 051:99900000aaa00000aca00000aaa0000000000000000000000000000000000000
+-- 052:00000a9900000999000009cc0000099900000000000000000000000000000000
+-- 053:99a0000099900000cc9000009990000000000000000000000000000000000000
 -- </TILES>
 
 -- <MAP>
