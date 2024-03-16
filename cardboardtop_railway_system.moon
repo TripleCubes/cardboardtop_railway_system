@@ -6,6 +6,9 @@
 local create_nav
 local connect_to_nav
 
+local bkg_draw
+local box_draw
+
 local create_menu_build
 local building_btn_connect
 local building_btn_connect_around
@@ -132,7 +135,7 @@ CARD_BTN_SZ = { x: 16, y: 16 }
 
 export BOOT = ->
 	camera.pos = vecnew(0, 0)
-	cursor.pos = vecnew(0, 0)
+	cursor.pos = vecnew(8, 8)
 
 	create_menu_build()
 
@@ -148,6 +151,7 @@ export TIC = ->
 	entity_list_update()
 
 	cls(0)
+	bkg_draw()
 	entity_list_draw()
 	game_controls_draw()
 	ui_list_draw()
@@ -183,6 +187,14 @@ connect_to_nav = (nav_btn_list, btn) ->
 	for i, v in ipairs(nav_btn_list)
 		v.right = btn
 	btn.left = nav_btn_list[1]
+
+bkg_draw = ->
+	box_draw()
+
+box_draw = ->
+	draw_pos = get_draw_pos(vecnew(8, 8))
+	rect(draw_pos.x, draw_pos.y, map_sz.x * 8, map_sz.y * 8, 4)
+	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 3)
 
 create_menu_build = ->
 	menu_build = menu_new(nil, vecnew(0, WINDOW_H - 60))
@@ -268,9 +280,9 @@ cursor_controls = ->
 		return
 
 	if building_btn_selected.building_type_tag == BUILDING_RAIL
-		if btnp(4)
+		if btn(4)
 			rail_new(cursor.pos)
-		if btnp(5)
+		if btn(5)
 			pos = vecdivdiv(cursor.pos, 8)
 			rail_rm_xy(pos.x, pos.y)
 		
@@ -285,45 +297,56 @@ dpad_camera_update = ->
 		camera.pos.x += 1
 
 dpad_cursor_update = ->
+	move = vecnew(0, 0)
+
 	if btnp(0)
-			cursor.pos.y -= 8
+		move.y -= 8
 
 	if btn(0)
 		cursor_move_hold_0 += 1
 		if cursor_move_hold_0 >= CURSOR_MOVE_HOLD_TIME and t % 4 == 0
-			cursor.pos.y -= 8
+			move.y -= 8
 	else
 		cursor_move_hold_0 = 0
 
 	if btnp(1)
-		cursor.pos.y += 8
+		move.y += 8
 
 	if btn(1)
 		cursor_move_hold_1 += 1
 		if cursor_move_hold_1 >= CURSOR_MOVE_HOLD_TIME and t % 4 == 0
-			cursor.pos.y += 8
+			move.y += 8
 	else
 		cursor_move_hold_1 = 0
 
 	if btnp(2)
-		cursor.pos.x -= 8
+		move.x -= 8
 
 	if btn(2)
 		cursor_move_hold_2 += 1
 		if cursor_move_hold_2 >= CURSOR_MOVE_HOLD_TIME and t % 4 == 0
-			cursor.pos.x -= 8
+			move.x -= 8
 	else
 		cursor_move_hold_2 = 0
 
 	if btnp(3)
-		cursor.pos.x += 8
+		move.x += 8
 
 	if btn(3)
 		cursor_move_hold_3 += 1
 		if cursor_move_hold_3 >= CURSOR_MOVE_HOLD_TIME and t % 4 == 0
-			cursor.pos.x += 8
+			move.x += 8
 	else
 		cursor_move_hold_3 = 0
+
+	next_pos = vecadd(cursor.pos, move)
+	if next_pos.x < 8 or next_pos.x > map_sz.x*8
+		move.x = 0
+
+	if next_pos.y < 8 or next_pos.y > map_sz.y*8
+		move.y = 0
+
+	cursor.pos = vecadd(cursor.pos, move)
 		
 game_controls_draw = ->
 	cursor_draw()
@@ -732,8 +755,8 @@ in_rect = (pos, rect_pos, rect_sz) ->
 -- 002:0d0000d0edeeeedeedeeeedefdffffdf0d0000d0edeeeedeedeeeedefdffffdf
 -- 003:0d0000dd0d000eee0d00eeef0d0eeef00deeef000ddddddd0eeeeeee0ff00000
 -- 004:0ddddddd0deeeeee0deee0000dfeee000d0feee00d00fedd0d000fde0d0000df
--- 005:0d0000dd0de00eee0deeeee00deeee000dfeef000deefedd0deffede0df00fd0
--- 006:ddddddddeeeeeeee0ee00ee00eeeeee00feeeef0ddfeeeddedffeede0de0fed0
+-- 005:0d0000dd0de00eee0deeeeef0deeeef00dfeef000deefedd0deffede0df00fd0
+-- 006:ddddddddeeeeeeee0ee00ee00eeeeee00feeeef0ddfeeeddedffeede0df0fed0
 -- 007:dd0000ddeee00eeefeeeeeef0feeeef000feef00ddddddddeeeeeeee0ff00ff0
 -- 008:dd0000ddeee00eeefeeeeeef0feeeef000feee00ddefeeddedeffede0df00fd0
 -- 016:000000000000e000000ee00000eee000000ee0000000e0000000000000000000
