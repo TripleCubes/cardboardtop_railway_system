@@ -66,13 +66,17 @@ local station_rm_xy
 local station_update
 local station_create_train
 local station_draw
+local station_check_path_all
+local station_check_path
 
 local train_new
 local train_update
+local train_move
 local train_get_path
 local recursion_train_get_path
 local train_check_rm
 local train_draw
+local train_check_path_all
 
 local restaurant_new
 local restaurant_update
@@ -649,18 +653,24 @@ rail_new = (pos) ->
 
 	rail = entity_new(ENTITY_RAIL, pos, vecnew(8, 8), rail_update, rail_draw)
 	rail.rail_type_tag = RAIL_HORIZONTAL
-	rail.rm_next_fram = false
+	rail.rm_next_frame = false
 
 	rail_grid[grid_pos.y][grid_pos.x] = rail
 	set_rail_type_tag(grid_pos.x, grid_pos.y)
 	update_surround_rail_type_tag(grid_pos.x, grid_pos.y)
+
+	train_check_path_all()
+	station_check_path_all()
 
 	return rail
 
 rail_rm = (rail) ->
 	rail.rm_next_frame = true
 	grid_pos = vecdivdiv(rail.pos, 8)
-	rail_grid[grid_pos.y][grid_pos.x] = -1
+	if rail_grid[grid_pos.y][grid_pos.x] != -1
+		rail_grid[grid_pos.y][grid_pos.x] = -1
+		train_check_path_all()
+		station_check_path_all()
 	update_surround_rail_type_tag(grid_pos.x, grid_pos.y)
 
 rail_rm_xy = (grid_pos) ->
@@ -669,6 +679,8 @@ rail_rm_xy = (grid_pos) ->
 	if rail_grid[y][x] != -1
 		rail_grid[y][x].rm_next_frame = true
 		rail_grid[y][x] = -1
+		train_check_path_all()
+		station_check_path_all()
 	update_surround_rail_type_tag(x, y)
 
 set_rail_type_tag = (x, y) ->
@@ -786,7 +798,7 @@ rail_draw = (rail) ->
 	if rail.rail_type_tag == RAIL_4
 		spr_id = 8
 
-	draw(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1, rail.pos)
+	draw(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1, rail.pos, -1)
 
 station_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
@@ -798,6 +810,12 @@ station_new = (pos) ->
 
 	station = entity_new(ENTITY_STATION, pos, vecnew(8, 8), station_update, station_draw)
 	station.rm_next_frame = false
+	station.have_path = false
+	station.created_at = t
+
+	train_check_path_all()
+	station_check_path_all()
+
 	return station
 
 station_rm = (station) ->
@@ -807,6 +825,8 @@ station_rm = (station) ->
 		if station != v
 			continue
 		station.rm_next_frame = true
+		train_check_path_all()
+		station_check_path_all()
 		return
 
 station_rm_xy = (grid_pos) ->
@@ -817,6 +837,8 @@ station_rm_xy = (grid_pos) ->
 		if not vecequals(grid_pos, v_grid_pos)
 			continue
 		v.rm_next_frame = true
+		train_check_path_all()
+		station_check_path_all()
 		return
 
 station_update = (i, station) ->
@@ -826,7 +848,10 @@ station_update = (i, station) ->
 		table.remove(entity_list, i)
 
 station_create_train = (station) ->
-	if t % (60*3) != 0
+	if not station.have_path
+		return
+
+	if (t+station.created_at) % (60*5) != 0
 		return
 
 	grid_pos = vecdivdiv(station.pos, 8)
@@ -897,7 +922,22 @@ station_create_train = (station) ->
 
 station_draw = (station) ->
 	draw_pos = get_draw_pos(station.pos)
-	draw(9, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, station.pos)
+	if station.pos.x == 8 and not station.have_path
+		draw(64, draw_pos.x + 3, draw_pos.y - 14, 0, 1, 0, 0, 1, 2, vecnew(0, 0), 10)
+	draw(9, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, station.pos, 0)
+
+station_check_path_all = ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_STATION
+			continue
+		station_check_path(v)
+
+station_check_path = (station) ->
+	path = train_get_path(station)
+	if #path <= 0
+		station.have_path = false
+	else
+		station.have_path = true
 
 train_new = (pos) ->
 	train = entity_new(ENTITY_TRAIN, pos, vecnew(8, 8), train_update, train_draw)
@@ -905,6 +945,13 @@ train_new = (pos) ->
 	return train
 
 train_update = (i, train) ->
+	train_move(train)
+	train_check_rm(i, train)
+
+train_move = (train) ->
+	if #train.path <= 0
+		return
+
 	grid_pos = train.path[#train.path]
 	pos = vecmul(grid_pos, 8)
 	diff = vecsub(pos, train.pos)
@@ -922,8 +969,6 @@ train_update = (i, train) ->
 		table.remove(train.path, #train.path)
 		
 	train.pos = vecadd(train.pos, move)
-
-	train_check_rm(i, train)
 
 train_get_path = (train) ->
 	grid_pos = vecdivdiv(train.pos, 8)
@@ -968,6 +1013,9 @@ recursion_train_get_path = (path, grid, xy) ->
 
 		if rail_grid[next_pos.y][next_pos.x] == -1
 			continue
+
+		if rail_grid[next_pos.y][next_pos.x].rm_next_frame
+			continue
 		
 		if recursion_train_get_path(path, grid, next_pos) == true
 			table.insert(path, next_pos)
@@ -980,6 +1028,7 @@ train_check_rm = (i, train) ->
 
 	if rail_grid[grid_pos.y][grid_pos.x] == -1
 		table.remove(entity_list, i)
+		return
 
 	for j, v in ipairs(entity_list)
 		if v.type_tag != ENTITY_STATION
@@ -989,10 +1038,19 @@ train_check_rm = (i, train) ->
 		if not rect_collide(train.pos, train.sz, v.pos, v.sz)
 			continue
 		table.remove(entity_list, i)
+		return
 
 train_draw = (train) ->
 	draw_pos = get_draw_pos(train.pos)
-	draw(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2, train.pos)
+	if #train.path == 0
+		draw(64, draw_pos.x + 3, draw_pos.y - 16, 0, 1, 0, 0, 1, 2, vecnew(0, 0), 10)
+	draw(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2, vecadd(train.pos, vecnew(0, 0)), 0)
+
+train_check_path_all = ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_TRAIN
+			continue
+		v.path = train_get_path(v)
 
 restaurant_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
@@ -1006,7 +1064,7 @@ restaurant_update = (i, restaurant) ->
 
 restaurant_draw = (restaurant) ->
 	draw_pos = get_draw_pos(restaurant.pos)
-	draw(11, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3, vecadd(restaurant.pos, vecnew(8, 8)))
+	draw(11, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3, vecadd(restaurant.pos, vecnew(8, 8)), 0)
 
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
@@ -1028,7 +1086,7 @@ entity_list_draw = () ->
 	for i, v in ipairs(entity_list)
 		v.draw(v)
 
-draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos) ->
+draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos, z_index) ->
 	d = {
 		spr_id: spr_id,
 		x: x,
@@ -1040,12 +1098,16 @@ draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos) ->
 		w: w,
 		h: h,
 		center_pos: veccopy(center_pos)
+		z_index: z_index
 	}
 
 	table.insert(draw_list, d)
 
 draw_list_draw = ->
 	table.sort(draw_list, (a, b) ->
+		if a.z_index != b.z_index
+			return a.z_index < b.z_index
+
 		return a.center_pos.y < b.center_pos.y
 	)
 
@@ -1177,6 +1239,8 @@ find_in_list = (list, item) ->
 -- 051:22200000333000003c3000003330000000000000000000000000000000000000
 -- 052:00000a9900000999000009cc0000099900000000000000000000000000000000
 -- 053:99a0000099900000cc9000009990000000000000000000000000000000000000
+-- 064:2200000022000000220000002200000022000000220000000000000000000000
+-- 080:2200000022000000000000000000000000000000000000000000000000000000
 -- </TILES>
 
 -- <MAP>
