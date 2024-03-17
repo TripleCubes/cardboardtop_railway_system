@@ -46,6 +46,10 @@ local btn_update
 local btn_draw
 local btn_connect
 
+--local progress_bar_new
+--local progress_bar_update
+--local progress_bar_draw
+
 local entity_new
 local entity_list_update
 local entity_list_draw
@@ -82,9 +86,12 @@ local train_check_path_all
 local restaurant_new
 local restaurant_rm_xy
 local restaurant_update
+local restaurant_serve
+local restaurant_refill
 local restaurant_draw
 
 local draw
+local draw_rect
 local draw_list_draw
 
 local vecequals
@@ -158,6 +165,7 @@ dpad_mode = DPAD_CURSOR
 
 UI_MENU = 0
 UI_BTN = 1
+UI_PROGRESS_BAR
 
 ui_list = {}
 
@@ -647,6 +655,26 @@ btn_connect = (btn1, btn2, dir) ->
 		btn1.right = btn2
 		btn2.left = btn1
 
+--progress_bar_new = (pos, w, init_filled, color) ->
+--	progress_bar = ui_new(UI_PROGRESS_BAR, progress_bar_update, progress_bar_draw)
+--	progress_bar.pos = veccopy(pos)
+--	progress_bar.w = w
+--	progress_bar.filled = init_filled
+--	progress_bar.color = color
+--	return progress_bar
+--
+--progress_bar_update = (i, progress_bar) ->
+--	if progress_bar.filled < 0
+--		progress_bar.filled = 0
+--	if progress_bar.filled > 1
+--		progress_bar.filled = 1
+--
+--progress_bar_draw = (progress_bar) ->
+--	rect(progress_bar.pos.x, progress_bar.pos.y, progress_bar.w, 2, 14)
+--	
+--	draw_w = progress_bar.filled * progress_bar.w
+--	rect(progress_bar.pos.x, progress_bar.pos.y, draw_w, 2, progress_bar.color)
+
 can_place = (grid_pos, sz) ->
 	if rail_grid[grid_pos.y][grid_pos.x] != -1
 		return false
@@ -956,6 +984,7 @@ station_check_path = (station) ->
 train_new = (pos) ->
 	train = entity_new(ENTITY_TRAIN, pos, vecnew(8, 8), train_update, train_draw)
 	train.path = train_get_path(train)
+	train.served = fasle
 	return train
 
 train_update = (i, train) ->
@@ -1066,6 +1095,7 @@ train_check_path_all = ->
 			continue
 		v.path = train_get_path(v)
 
+RESTAURANT_SERVE_COUNT_MAX = 8
 restaurant_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(16, 16))
@@ -1073,6 +1103,8 @@ restaurant_new = (pos) ->
 
 	restaurant = entity_new(ENTITY_RESTAURANT, pos, vecnew(16, 16), restaurant_update, restaurant_draw)
 	restaurant.rm_next_frame = false
+	restaurant.serve_count = RESTAURANT_SERVE_COUNT_MAX
+
 	return restaurant
 
 restaurant_rm_xy = (grid_pos) ->
@@ -1085,12 +1117,36 @@ restaurant_rm_xy = (grid_pos) ->
 		return
 
 restaurant_update = (i, restaurant) ->
+	restaurant_serve(restaurant)
+	restaurant_refill(restaurant)
+
 	if restaurant.rm_next_frame
 		table.remove(entity_list, i)
+
+restaurant_serve = (restaurant) ->
+	if restaurant.serve_count == 0
+		return
+
+	for j, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_TRAIN
+			continue
+		if not rect_collide(vecadd(restaurant.pos, vecnew(-8, -8)), vecnew(32, 32), v.pos, v.sz)
+			continue
+		if v.served
+			continue
+		v.served = true
+		restaurant.serve_count -= 1
+
+restaurant_refill = (restaurant) ->
 
 restaurant_draw = (restaurant) ->
 	draw_pos = get_draw_pos(restaurant.pos)
 	draw(11, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3, vecadd(restaurant.pos, vecnew(8, 8)), 0)
+
+	bar_w = 16
+	draw_rect(draw_pos.x, draw_pos.y - 4, bar_w, 2, 14, vecnew(0, 0), 11)
+	bar_filled_w = bar_w * (restaurant.serve_count / RESTAURANT_SERVE_COUNT_MAX)
+	draw_rect(draw_pos.x, draw_pos.y - 4, bar_filled_w, 2, 6, vecnew(0, 0), 12)
 
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
@@ -1112,8 +1168,11 @@ entity_list_draw = () ->
 	for i, v in ipairs(entity_list)
 		v.draw(v)
 
+DRAW_SPR = 0
+DRAW_RECT = 1
 draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos, z_index) ->
 	d = {
+		type_tag: DRAW_SPR,
 		spr_id: spr_id,
 		x: x,
 		y: y,
@@ -1129,6 +1188,19 @@ draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos, z_index)
 
 	table.insert(draw_list, d)
 
+draw_rect = (x, y, w, h, color, center_pos, z_index) ->
+	d = {
+		type_tag: DRAW_RECT,
+		x: x,
+		y: y,
+		w: w,
+		h: h,
+		color: color,
+		center_pos: veccopy(center_pos),
+		z_index: z_index,
+	}
+	table.insert(draw_list, d)
+
 draw_list_draw = ->
 	table.sort(draw_list, (a, b) ->
 		if a.z_index != b.z_index
@@ -1138,7 +1210,10 @@ draw_list_draw = ->
 	)
 
 	for i, v in ipairs(draw_list)
-		spr(v.spr_id, v.x, v.y, v.color_key, v.scale, v.flip, v.rotate, v.w, v.h)
+		if v.type_tag == DRAW_SPR
+			spr(v.spr_id, v.x, v.y, v.color_key, v.scale, v.flip, v.rotate, v.w, v.h)
+		if v.type_tag == DRAW_RECT
+			rect(v.x, v.y, v.w, v.h, v.color)
 
 	draw_list = {}
 
