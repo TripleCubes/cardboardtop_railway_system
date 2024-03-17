@@ -23,6 +23,7 @@ local dpad_cursor_update
 
 local game_controls_draw
 local cursor_draw
+local get_cursor_sz
 
 local get_draw_pos
 
@@ -73,6 +74,10 @@ local recursion_train_get_path
 local train_check_rm
 local train_draw
 
+local restaurant_new
+local restaurant_update
+local restaurant_draw
+
 local vecequals
 local vecnew
 local veccopy
@@ -94,6 +99,9 @@ local rndf
 local dice
 local list_shuffle
 
+local is_in_list
+local find_in_list
+
 WINDOW_W = 240
 WINDOW_H = 136
 
@@ -105,6 +113,9 @@ RIGHT = 3
 ENTITY_RAIL = 0
 ENTITY_STATION = 1
 ENTITY_TRAIN = 2
+ENTITY_RESTAURANT = 3
+
+BUILDING_ENTITY_LIST = { ENTITY_RAIL, ENTITY_STATION, ENTITY_RESTAURANT }
 
 rail_grid = {}
 RAIL_HORIZONTAL = 0
@@ -189,6 +200,7 @@ export TIC = ->
 
 	btn_switched = false
 	t += 1
+	--trace(#entity_list)
 
 create_nav = (menu) ->
 	y = TAB_BTN_MARGIN_TOP
@@ -332,6 +344,10 @@ cursor_controls = ->
 	if building_btn_selected.building_type_tag == BUILDING_STATION
 		if btn(4)
 			station_new(cursor.pos)
+
+	if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
+		if btn(4)
+			restaurant_new(cursor.pos)
 			
 	if btn(5) and not exit_menu_holding
 		rail_rm_xy(pos)
@@ -391,10 +407,11 @@ dpad_cursor_update = ->
 		cursor_move_hold_3 = 0
 
 	next_pos = vecadd(cursor.pos, move)
-	if next_pos.x < 8 or next_pos.x > map_sz.x*8
+	cursor_sz = get_cursor_sz()
+	if next_pos.x < 8 or next_pos.x - 8 + cursor_sz.x > map_sz.x*8
 		move.x = 0
 
-	if next_pos.y < 8 or next_pos.y > map_sz.y*8
+	if next_pos.y < 8 or next_pos.y - 8 + cursor_sz.y > map_sz.y*8
 		move.y = 0
 
 	cursor.pos = vecadd(cursor.pos, move)
@@ -403,12 +420,26 @@ game_controls_draw = ->
 	cursor_draw()
 
 cursor_draw = ->
-	if dpad_mode == DPAD_CURSOR
-		draw_pos = get_draw_pos(cursor.pos)
-		line(draw_pos.x    , draw_pos.y    , draw_pos.x + 7, draw_pos.y    , 12)
-		line(draw_pos.x + 7, draw_pos.y    , draw_pos.x + 7, draw_pos.y + 7, 12)
-		line(draw_pos.x + 7, draw_pos.y + 7, draw_pos.x    , draw_pos.y + 7, 12)
-		line(draw_pos.x    , draw_pos.y + 7, draw_pos.x    , draw_pos.y    , 12)
+	if dpad_mode != DPAD_CURSOR
+		return
+
+	cursor_sz = get_cursor_sz()
+
+	draw_pos = get_draw_pos(cursor.pos)
+	top_left = vecnew(draw_pos.x, draw_pos.y)
+	top_right = vecnew(draw_pos.x + cursor_sz.x - 1, draw_pos.y)
+	bottom_right = vecnew(draw_pos.x + cursor_sz.x - 1, draw_pos.y + cursor_sz.y - 1)
+	bottom_left = vecnew(draw_pos.x, draw_pos.y + cursor_sz.y - 1)
+
+	line(top_left.x, top_left.y, top_right.x, top_right.y, 12)
+	line(top_right.x, top_right.y, bottom_right.x, bottom_right.y, 12)
+	line(bottom_right.x, bottom_right.y, bottom_left.x, bottom_left.y, 12)
+	line(bottom_left.x, bottom_left.y, top_left.x, top_left.y, 12)
+
+get_cursor_sz = ->
+	if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
+		return vecnew(16, 16)
+	return vecnew(8, 8)
 
 get_draw_pos = (vec) ->
 	return vecsub(vec, camera.pos)
@@ -480,6 +511,13 @@ select_building_btn = (btn) ->
 	btn.highlight = true
 
 	building_btn_selected = btn
+
+	cursor_sz = get_cursor_sz()
+	if cursor.pos.x - 8 + cursor_sz.x > map_sz.x*8
+		cursor.pos.x -= 8
+
+	if cursor.pos.y - 8 + cursor_sz.y > map_sz.y*8
+		cursor.pos.y -= 8
 
 btn_new = (pos, sz, spr_id, spr_sz, txt, clicked_func) ->
 	btn = ui_new(UI_BTN, btn_update, btn_draw)
@@ -591,7 +629,7 @@ can_place = (grid_pos, sz) ->
 		return false
 	
 	for i, v in ipairs(entity_list)
-		if v.type_tag != ENTITY_STATION
+		if not is_in_list(BUILDING_ENTITY_LIST, v.type_tag)
 			continue
 		pos = vecmul(grid_pos, 8)
 		if rect_collide(v.pos, v.sz, pos, sz)
@@ -951,6 +989,20 @@ train_draw = (train) ->
 	draw_pos = get_draw_pos(train.pos)
 	spr(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2)
 
+restaurant_new = (pos) ->
+	grid_pos = vecdivdiv(pos, 8)
+	if not can_place(grid_pos, vecnew(16, 16))
+		return
+
+	restaurant = entity_new(ENTITY_RESTAURANT, pos, vecnew(16, 16), restaurant_update, restaurant_draw)
+	return restaurant
+
+restaurant_update = (i, restaurant) ->
+
+restaurant_draw = (restaurant) ->
+	draw_pos = get_draw_pos(restaurant.pos)
+	spr(11, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3)
+
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
 		type_tag: type_tag,
@@ -1048,6 +1100,18 @@ list_shuffle = (list) ->
 		table.remove(list, rnd)
 	return result
 
+is_in_list = (list, item) ->
+	for i, v in ipairs(list)
+		if v == item
+			return true
+	return false
+
+find_in_list = (list, item) ->
+	for i, v in ipairs(list)
+		if v == item
+			return i
+	return -1
+
 -- <TILES>
 -- 001:ddddddddeeeeeeee0ff00ff00ee00ee00ee00ee0ddddddddeeeeeeee0ff00ff0
 -- 002:0d0000d0edeeeedeedeeeedefdffffdf0d0000d0edeeeedeedeeeedefdffffdf
@@ -1059,21 +1123,27 @@ list_shuffle = (list) ->
 -- 008:dd0000ddeee00eeefeeeeeef0feeeef000feee00ddefeeddedeffede0df00fd0
 -- 009:00000000000000000aaaaaa0aaaa9aaaaaaaa9aaa999999aaaaaa9aaaaaa9aaa
 -- 010:0000000000000000000000000000000000000000aaaaaaaaaa9999aaa999999a
+-- 011:0000003300000333000032330003223300322233032222333222223332222233
+-- 012:3300000033300000332300003322300033222300332222303322222333222223
 -- 016:000000000000e000000ee00000eee000000ee0000000e0000000000000000000
 -- 017:00000000000e000000eee0000eeeee0000eee00000eee0000000000000000000
 -- 018:00000000000e000000eee0000ee0ee0000eee000000e00000000000000000000
 -- 025:aaaaaaaaa999999a99999999999999999cccccc99cccccc99999999999999999
 -- 026:a999999aa999999aaa9999aaaaaaaaaa99999999ccc99cccccc99ccc99999999
+-- 027:3222233232223322322332cc323322cc333223cc332233cc333333330e222222
+-- 028:2332222322332223cc233223cc223323cc322333cc33223333333333222222e0
 -- 032:000000000000000000000000000000000000dddd0000eeee00000ff000000ee0
 -- 033:00000000000000000000000000000000dddd0000eeee00000ff000000ee00000
--- 034:000000000000000000000000000000000000000a000000a900000a9c0000aaac
--- 035:00000000000000000000000000000000a00000009a000000c9a00000caaa0000
+-- 034:0000000000000000000000000000000000000003000000320000032c0000333c
+-- 035:000000000000000000000000000000003000000023000000c2300000c3330000
 -- 036:00000000000000000000000000000000000000aa00000aaa00000aaa00000aaa
 -- 037:00000000000000000000000000000000aa000000aaa00000aaa00000aaa00000
+-- 043:0e3333330e3333330e33fff30e33fff30e33fff30e33fff30eeeeeee0fffffff
+-- 044:333333e0333333e03ccc33e03ccc33e0333333e0333333e0eeeeeee0fffffff0
 -- 048:00000ee00000dddd0000eeee00000ff000000000000000000000000000000000
 -- 049:0ee00000dddd0000eeee00000ff0000000000000000000000000000000000000
--- 050:0000099900000aaa00000aee00000aee00000000000000000000000000000000
--- 051:99900000aaa00000aca00000aaa0000000000000000000000000000000000000
+-- 050:0000022200000333000003ee000003ee00000000000000000000000000000000
+-- 051:22200000333000003c3000003330000000000000000000000000000000000000
 -- 052:00000a9900000999000009cc0000099900000000000000000000000000000000
 -- 053:99a0000099900000cc9000009990000000000000000000000000000000000000
 -- </TILES>
