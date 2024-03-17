@@ -128,6 +128,7 @@ cursor_move_hold_0 = 0
 cursor_move_hold_1 = 0
 cursor_move_hold_2 = 0
 cursor_move_hold_3 = 0
+exit_menu_holding = false
 CURSOR_MOVE_HOLD_TIME = 30
 
 DPAD_CAMERA = 0
@@ -161,12 +162,12 @@ CARD_BTN_SPACING_SZ = { x: 20, y: 20 }
 CARD_BTN_SZ = { x: 16, y: 16 }
 
 export BOOT = ->
-	camera.pos = vecnew(0, 0)
+	map_sz = vecnew(16, 10)
+	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
 	cursor.pos = vecnew(8, 8)
 
 	create_menu_build()
 
-	map_sz = vecnew(24, 16)
 	for y = 1, map_sz.y
 		table.insert(rail_grid, {})
 		for x = 1, map_sz.x
@@ -177,11 +178,14 @@ export TIC = ->
 	ui_list_update()
 	entity_list_update()
 
-	cls(0)
+	cls(13)
 	bkg_draw()
 	entity_list_draw()
 	game_controls_draw()
 	ui_list_draw()
+
+	if not btn(5)
+		exit_menu_holding = false
 
 	btn_switched = false
 	t += 1
@@ -221,6 +225,12 @@ bkg_draw = ->
 box_draw = ->
 	draw_pos = get_draw_pos(vecnew(8, 8))
 	rect(draw_pos.x, draw_pos.y, map_sz.x * 8, map_sz.y * 8, 4)
+
+	tape_w = 10
+	tape_h = 8
+	rect(draw_pos.x + (map_sz.x*8 - tape_w)/2, draw_pos.y, tape_w, map_sz.y*8, 3)
+	rect(draw_pos.x, draw_pos.y + (map_sz.y*8 - tape_h)/2, map_sz.x*8, tape_h, 3)
+
 	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 3)
 
 create_menu_build = ->
@@ -323,7 +333,7 @@ cursor_controls = ->
 		if btn(4)
 			station_new(cursor.pos)
 			
-	if btn(5)
+	if btn(5) and not exit_menu_holding
 		rail_rm_xy(pos)
 		station_rm_xy(pos)
 		
@@ -443,6 +453,7 @@ menu_update = (i, menu) ->
 
 	if btnp(5)
 		if menu.up_menu == nil
+			exit_menu_holding = true
 			close_all_menus()
 		else
 			open_menu(menu.up_menu)
