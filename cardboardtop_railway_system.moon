@@ -18,6 +18,7 @@ local game_controls_update
 local dpad_mode_controls
 local menu_controls
 local cursor_controls
+local building_rm
 local dpad_camera_update
 local dpad_cursor_update
 
@@ -79,6 +80,7 @@ local train_draw
 local train_check_path_all
 
 local restaurant_new
+local restaurant_rm_xy
 local restaurant_update
 local restaurant_draw
 
@@ -247,8 +249,8 @@ box_draw = ->
 	draw_pos = get_draw_pos(vecnew(8, 8))
 	rect(draw_pos.x, draw_pos.y, map_sz.x * 8, map_sz.y * 8, 4)
 
-	tape_w = 10
-	tape_h = 8
+	tape_w = 16
+	tape_h = 16
 	rect(draw_pos.x + (map_sz.x*8 - tape_w)/2, draw_pos.y, tape_w, map_sz.y*8, 3)
 	rect(draw_pos.x, draw_pos.y + (map_sz.y*8 - tape_h)/2, map_sz.x*8, tape_h, 3)
 
@@ -346,6 +348,8 @@ cursor_controls = ->
 
 	pos = vecdivdiv(cursor.pos, 8)
 
+	cursor_sz = get_cursor_sz()
+
 	if building_btn_selected.building_type_tag == BUILDING_RAIL
 		if btn(4)
 			rail_new(cursor.pos)
@@ -359,8 +363,18 @@ cursor_controls = ->
 			restaurant_new(cursor.pos)
 			
 	if btn(5) and not exit_menu_holding
-		rail_rm_xy(pos)
-		station_rm_xy(pos)
+		if cursor_sz.x == 16
+			for x = 0, 1
+				for y = 0, 1
+					pos2 = vecadd(pos, vecnew(x, y))
+					building_rm(pos2)
+		else
+			building_rm(pos)
+
+building_rm = (pos) ->
+	rail_rm_xy(pos)
+	station_rm_xy(pos)
+	restaurant_rm_xy(pos)
 		
 dpad_camera_update = ->
 	if btn(0)
@@ -1058,9 +1072,21 @@ restaurant_new = (pos) ->
 		return
 
 	restaurant = entity_new(ENTITY_RESTAURANT, pos, vecnew(16, 16), restaurant_update, restaurant_draw)
+	restaurant.rm_next_frame = false
 	return restaurant
 
+restaurant_rm_xy = (grid_pos) ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_RESTAURANT
+			continue
+		if not rect_collide(vecmul(grid_pos, 8), vecnew(8, 8), v.pos, v.sz)
+			continue
+		v.rm_next_frame = true
+		return
+
 restaurant_update = (i, restaurant) ->
+	if restaurant.rm_next_frame
+		table.remove(entity_list, i)
 
 restaurant_draw = (restaurant) ->
 	draw_pos = get_draw_pos(restaurant.pos)
