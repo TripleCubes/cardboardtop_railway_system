@@ -91,7 +91,6 @@ local restaurant_refill
 local restaurant_draw
 
 local refill_new
-local refill_rm_xy
 local refill_update
 local refill_draw
 
@@ -137,7 +136,7 @@ ENTITY_TRAIN = 2
 ENTITY_RESTAURANT = 3
 ENTITY_REFILL = 4
 
-BUILDING_ENTITY_LIST = { ENTITY_RAIL, ENTITY_STATION, ENTITY_RESTAURANT, ENTITY_REFILL }
+BUILDING_ENTITY_LIST = { ENTITY_RAIL, ENTITY_STATION, ENTITY_RESTAURANT }
 
 rail_grid = {}
 RAIL_HORIZONTAL = 0
@@ -401,7 +400,6 @@ building_rm = (pos) ->
 	rail_rm_xy(pos)
 	station_rm_xy(pos)
 	restaurant_rm_xy(pos)
-	refill_rm_xy(pos)
 		
 dpad_camera_update = ->
 	if btn(0)
@@ -1168,25 +1166,10 @@ restaurant_draw = (restaurant) ->
 	draw_rect(draw_pos.x, draw_pos.y - 4, bar_filled_w, 2, 6, vecnew(0, 0), 12)
 
 refill_new = (pos) ->
-	grid_pos = vecdivdiv(pos, 8)
-	if not can_place(grid_pos, vecnew(8, 8))
-		return
-
 	refill = entity_new(ENTITY_REFILL, pos, vecnew(8, 8), refill_update, refill_draw)
 	return refill
 
-refill_rm_xy = (grid_pos) ->
-	for i, v in ipairs(entity_list)
-		if v.type_tag != ENTITY_REFILL
-			continue
-		if not vecequals(grid_pos, vecdivdiv(v.pos, 8))
-			continue
-		v.rm_next_frame = true
-		return
-
 refill_update = (i, refill) ->
-	if refill.rm_next_frame
-		table.remove(entity_list, i)
 
 refill_draw = (refill) ->
 	draw_pos = get_draw_pos(refill.pos)
