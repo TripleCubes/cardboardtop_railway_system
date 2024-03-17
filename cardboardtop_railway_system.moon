@@ -78,6 +78,9 @@ local restaurant_new
 local restaurant_update
 local restaurant_draw
 
+local draw
+local draw_list_draw
+
 local vecequals
 local vecnew
 local veccopy
@@ -133,6 +136,7 @@ RAIL_4 = 10
 t = 0
 map_sz = { x: 0, y: 0 }
 entity_list = {}
+draw_list = {}
 camera = { pos: {} }
 cursor = { pos: {} }
 cursor_move_hold_0 = 0
@@ -192,6 +196,7 @@ export TIC = ->
 	cls(13)
 	bkg_draw()
 	entity_list_draw()
+	draw_list_draw()
 	game_controls_draw()
 	ui_list_draw()
 
@@ -781,7 +786,7 @@ rail_draw = (rail) ->
 	if rail.rail_type_tag == RAIL_4
 		spr_id = 8
 
-	spr(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1)
+	draw(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1, rail.pos)
 
 station_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
@@ -892,7 +897,7 @@ station_create_train = (station) ->
 
 station_draw = (station) ->
 	draw_pos = get_draw_pos(station.pos)
-	spr(9, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2)
+	draw(9, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, station.pos)
 
 train_new = (pos) ->
 	train = entity_new(ENTITY_TRAIN, pos, vecnew(8, 8), train_update, train_draw)
@@ -987,7 +992,7 @@ train_check_rm = (i, train) ->
 
 train_draw = (train) ->
 	draw_pos = get_draw_pos(train.pos)
-	spr(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2)
+	draw(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2, train.pos)
 
 restaurant_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
@@ -1001,7 +1006,7 @@ restaurant_update = (i, restaurant) ->
 
 restaurant_draw = (restaurant) ->
 	draw_pos = get_draw_pos(restaurant.pos)
-	spr(11, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3)
+	draw(11, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3, vecadd(restaurant.pos, vecnew(8, 8)))
 
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
@@ -1022,6 +1027,32 @@ entity_list_update = () ->
 entity_list_draw = () ->
 	for i, v in ipairs(entity_list)
 		v.draw(v)
+
+draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos) ->
+	d = {
+		spr_id: spr_id,
+		x: x,
+		y: y,
+		color_key: color_key,
+		scale: scale,
+		flip: flip,
+		rotate: rotate,
+		w: w,
+		h: h,
+		center_pos: veccopy(center_pos)
+	}
+
+	table.insert(draw_list, d)
+
+draw_list_draw = ->
+	table.sort(draw_list, (a, b) ->
+		return a.center_pos.y < b.center_pos.y
+	)
+
+	for i, v in ipairs(draw_list)
+		spr(v.spr_id, v.x, v.y, v.color_key, v.scale, v.flip, v.rotate, v.w, v.h)
+
+	draw_list = {}
 
 vecequals = (veca, vecb) ->
 	return veca.x == vecb.x and veca.y == vecb.y
