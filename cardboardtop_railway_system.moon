@@ -206,8 +206,8 @@ BUILDING_FARM = 4
 RAIL_COST = 1
 RESTAURANT_COST = 12
 STATION_COST = 20
-REFILL_COST = 1
-FARM_COST = 8
+REFILL_COST = 3
+FARM_COST = 12
 
 rail_inventory = 0
 station_inventory = 0
@@ -869,9 +869,14 @@ can_place = (grid_pos, sz) ->
 	return true
 
 rail_new = (pos) ->
+	if money_count < RAIL_COST
+		return
+
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(8, 8))
 		return
+
+	money_count -= RAIL_COST
 
 	rail = entity_new(ENTITY_RAIL, pos, vecnew(8, 8), rail_update, rail_draw)
 	rail.rail_type_tag = RAIL_HORIZONTAL
@@ -1023,12 +1028,17 @@ rail_draw = (rail) ->
 	draw(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1, rail.pos, -1)
 
 station_new = (pos) ->
+	if money_count < STATION_COST
+		return
+
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(8, 8))
 		return
 
 	if cursor.pos.x != 8 and cursor.pos.x != map_sz.x * 8
 		return
+
+	money_count -= STATION_COST
 
 	station = entity_new(ENTITY_STATION, pos, vecnew(8, 8), station_update, station_draw)
 	station.rm_next_frame = false
@@ -1285,9 +1295,14 @@ train_check_path_all = ->
 RESTAURANT_SERVE_COUNT_MAX = 8
 SHOW_MONEY_MARK_FOR = 60
 restaurant_new = (pos) ->
+	if money_count < RESTAURANT_COST
+		return
+
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(16, 16))
 		return
+
+	money_count -= RESTAURANT_COST
 
 	restaurant = entity_new(ENTITY_RESTAURANT, pos, vecnew(16, 16), restaurant_update, restaurant_draw)
 	restaurant.rm_next_frame = false
@@ -1358,9 +1373,14 @@ restaurant_draw = (restaurant) ->
 		draw_text('+1', draw_pos.x + 4, draw_pos.y - 12, 5, false, 1, true, vecnew(0, 0), 10)
 
 refill_new = (pos) ->
+	if money_count < REFILL_COST
+		return
+
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(8, 8))
 		return
+
+	money_count -= REFILL_COST
 
 	refill = entity_new(ENTITY_REFILL, pos, vecnew(8, 8), refill_update, refill_draw)
 	refill.rm_next_frame = false
@@ -1385,9 +1405,14 @@ refill_draw = (refill) ->
 
 FARM_CREATE_REFILL_COOLDOWN = 32 * 60
 farm_new = (pos) ->
+	if money_count < FARM_COST
+		return
+
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(16, 16))
 		return
+
+	money_count -= FARM_COST
 
 	farm = entity_new(ENTITY_FARM, pos, vecnew(16, 16), farm_update, farm_draw)
 	farm.rm_next_frame = false
