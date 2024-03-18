@@ -162,7 +162,8 @@ cursor_move_hold_0 = 0
 cursor_move_hold_1 = 0
 cursor_move_hold_2 = 0
 cursor_move_hold_3 = 0
-exit_menu_holding = false
+exit_menu_holding_5 = false
+exit_menu_holding_4 = false
 CURSOR_MOVE_HOLD_TIME = 30
 
 DPAD_CAMERA = 0
@@ -222,7 +223,9 @@ export TIC = ->
 	ui_list_draw()
 
 	if not btn(5)
-		exit_menu_holding = false
+		exit_menu_holding_5 = false
+	if not btn(4)
+		exit_menu_holding_4 = false
 
 	btn_switched = false
 	t += 1
@@ -232,6 +235,7 @@ create_nav = (menu) ->
 	y = TAB_BTN_MARGIN_TOP
 	btn_back = btn_new(vecnew(TAB_BTN_MARGIN_LEFT, y), TAB_BTN_SZ, 16, vecnew(1, 1), 'Back', (btn) ->
 		close_all_menus()
+		exit_menu_holding_4 = true
 	)
 	y += TAB_BTN_SPACING_H
 	btn_build = btn_new(vecnew(TAB_BTN_MARGIN_LEFT, y), TAB_BTN_SZ, 17, vecnew(1, 1), 'Build', (btn) ->
@@ -372,23 +376,24 @@ cursor_controls = ->
 
 	cursor_sz = get_cursor_sz()
 
-	if building_btn_selected.building_type_tag == BUILDING_RAIL
-		if btn(4)
-			rail_new(cursor.pos)
+	if not exit_menu_holding_4
+		if building_btn_selected.building_type_tag == BUILDING_RAIL
+			if btn(4)
+				rail_new(cursor.pos)
 
-	if building_btn_selected.building_type_tag == BUILDING_STATION
-		if btn(4)
-			station_new(cursor.pos)
+		if building_btn_selected.building_type_tag == BUILDING_STATION
+			if btn(4)
+				station_new(cursor.pos)
 
-	if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
-		if btn(4)
-			restaurant_new(cursor.pos)
+		if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
+			if btn(4)
+				restaurant_new(cursor.pos)
 
-	if building_btn_selected.building_type_tag == BUILDING_REFILL
-		if btn(4)
-			refill_new(cursor.pos)
+		if building_btn_selected.building_type_tag == BUILDING_REFILL
+			if btn(4)
+				refill_new(cursor.pos)
 			
-	if btn(5) and not exit_menu_holding
+	if btn(5) and not exit_menu_holding_5
 		if cursor_sz.x == 16
 			for x = 0, 1
 				for y = 0, 1
@@ -534,7 +539,7 @@ menu_update = (i, menu) ->
 
 	if btnp(5)
 		if menu.up_menu == nil
-			exit_menu_holding = true
+			exit_menu_holding_5 = true
 			close_all_menus()
 		else
 			open_menu(menu.up_menu)
@@ -1157,6 +1162,19 @@ restaurant_serve = (restaurant) ->
 		restaurant.serve_count -= 1
 
 restaurant_refill = (restaurant) ->
+	if restaurant.serve_count > 0
+		return
+
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_REFILL
+			continue
+		if v.rm_next_frame
+			continue
+		if not rect_collide(vecadd(restaurant.pos, vecnew(-8, -8)), vecnew(32, 32), v.pos, v.sz)
+			continue
+		v.rm_next_frame = true
+		restaurant.serve_count = RESTAURANT_SERVE_COUNT_MAX
+		return
 
 restaurant_draw = (restaurant) ->
 	draw_pos = get_draw_pos(restaurant.pos)
