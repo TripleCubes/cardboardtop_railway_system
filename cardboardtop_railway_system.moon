@@ -23,6 +23,7 @@ local dpad_camera_update
 local dpad_cursor_update
 
 local game_controls_draw
+local game_ui_draw
 local cursor_draw
 local get_cursor_sz
 
@@ -103,6 +104,7 @@ local farm_draw
 
 local draw
 local draw_rect
+local draw_text
 local draw_list_draw
 
 local vecequals
@@ -171,6 +173,7 @@ cursor_move_hold_2 = 0
 cursor_move_hold_3 = 0
 exit_menu_holding_5 = false
 exit_menu_holding_4 = false
+money_count = 0
 CURSOR_MOVE_HOLD_TIME = 30
 
 DPAD_CAMERA = 0
@@ -206,6 +209,8 @@ CARD_BTN_MARGIN_TOP = TAB_BTN_MARGIN_TOP
 CARD_BTN_SPACING_SZ = { x: 20, y: 20 }
 CARD_BTN_SZ = { x: 16, y: 16 }
 
+STATS_POS = { x: 2, y: 2 }
+
 export BOOT = ->
 	map_sz = vecnew(16, 10)
 	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
@@ -229,6 +234,7 @@ export TIC = ->
 	draw_list_draw()
 	game_controls_draw()
 	ui_list_draw()
+	game_ui_draw()
 
 	if not btn(5)
 		exit_menu_holding_5 = false
@@ -499,6 +505,10 @@ dpad_cursor_update = ->
 		
 game_controls_draw = ->
 	cursor_draw()
+
+game_ui_draw = ->
+	spr(65, STATS_POS.x + 2, STATS_POS.y + 2, 0, 1, 0, 0, 1, 1)
+	print(money_count, STATS_POS.x + 8, STATS_POS.y + 1, 12, false, 1, true)
 
 cursor_draw = ->
 	if dpad_mode != DPAD_CURSOR
@@ -948,7 +958,7 @@ station_create_train = (station) ->
 	if not station.have_path
 		return
 
-	if (t+station.created_at) % (60*5) != 0
+	if (t-station.created_at) % (60*8) != 0
 		return
 
 	grid_pos = vecdivdiv(station.pos, 8)
@@ -1104,6 +1114,8 @@ recursion_train_get_path = (path, grid, xy) ->
 			for j, v2 in ipairs(entity_list)
 				if v2.type_tag != ENTITY_STATION
 					continue
+				if v2.rm_next_frame
+					continue
 				if not vecequals(next_pos, vecdivdiv(v2.pos, 8))
 					continue
 				table.insert(path, next_pos)
@@ -1156,6 +1168,7 @@ train_check_path_all = ->
 		v.path = train_get_path(v)
 
 RESTAURANT_SERVE_COUNT_MAX = 8
+SHOW_MONEY_MARK_FOR = 60
 restaurant_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(16, 16))
@@ -1164,6 +1177,7 @@ restaurant_new = (pos) ->
 	restaurant = entity_new(ENTITY_RESTAURANT, pos, vecnew(16, 16), restaurant_update, restaurant_draw)
 	restaurant.rm_next_frame = false
 	restaurant.serve_count = RESTAURANT_SERVE_COUNT_MAX
+	restaurant.show_money_mark = 0
 
 	return restaurant
 
@@ -1180,6 +1194,8 @@ restaurant_update = (i, restaurant) ->
 	restaurant_serve(restaurant)
 	restaurant_refill(restaurant)
 
+	restaurant.show_money_mark -= 1
+
 	if restaurant.rm_next_frame
 		table.remove(entity_list, i)
 
@@ -1195,6 +1211,8 @@ restaurant_serve = (restaurant) ->
 		if v.served
 			continue
 		v.served = true
+		money_count += 1
+		restaurant.show_money_mark = SHOW_MONEY_MARK_FOR
 		restaurant.serve_count -= 1
 
 restaurant_refill = (restaurant) ->
@@ -1220,6 +1238,9 @@ restaurant_draw = (restaurant) ->
 	draw_rect(draw_pos.x, draw_pos.y - 4, bar_w, 2, 14, vecnew(0, 0), 11)
 	bar_filled_w = bar_w * (restaurant.serve_count / RESTAURANT_SERVE_COUNT_MAX)
 	draw_rect(draw_pos.x, draw_pos.y - 4, bar_filled_w, 2, 6, vecnew(0, 0), 12)
+
+	if restaurant.show_money_mark > 0
+		draw_text('+1', draw_pos.x + 4, draw_pos.y - 12, 5, false, 1, true, vecnew(0, 0), 10)
 
 refill_new = (pos) ->
 	grid_pos = vecdivdiv(pos, 8)
@@ -1323,6 +1344,7 @@ entity_list_draw = () ->
 
 DRAW_SPR = 0
 DRAW_RECT = 1
+DRAW_TEXT = 2
 draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos, z_index) ->
 	d = {
 		type_tag: DRAW_SPR,
@@ -1354,6 +1376,21 @@ draw_rect = (x, y, w, h, color, center_pos, z_index) ->
 	}
 	table.insert(draw_list, d)
 
+draw_text = (text, x, y, color, fixed, scale, small_font, center_pos, z_index) ->
+	d = {
+		type_tag: DRAW_TEXT,
+		text: text,
+		x: x,
+		y: y,
+		color: color,
+		fixed: fixed,
+		scale: scale,
+		small_font: small_font,
+		center_pos: center_pos,
+		z_index: z_index,
+	}
+	table.insert(draw_list, d)
+
 draw_list_draw = ->
 	table.sort(draw_list, (a, b) ->
 		if a.z_index != b.z_index
@@ -1367,6 +1404,8 @@ draw_list_draw = ->
 			spr(v.spr_id, v.x, v.y, v.color_key, v.scale, v.flip, v.rotate, v.w, v.h)
 		if v.type_tag == DRAW_RECT
 			rect(v.x, v.y, v.w, v.h, v.color)
+		if v.type_tag == DRAW_TEXT
+			print(v.text, v.x, v.y, v.color, v.fixed, v.scale, v.small_font)
 
 	draw_list = {}
 
