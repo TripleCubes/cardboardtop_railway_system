@@ -10,7 +10,10 @@ local bkg_draw
 local box_draw
 
 local create_menu_build
+local create_building_btn
 local draw_desc
+local draw_building_costs
+local draw_building_cost_under_btn
 local building_btn_connect
 local building_btn_connect_around
 local get_building_btn_from_xy
@@ -198,7 +201,20 @@ BUILDING_RESTAURANT = 1
 BUILDING_STATION = 2
 BUILDING_REFILL = 3
 BUILDING_FARM = 4
+
+RAIL_COST = 1
+RESTAURANT_COST = 12
+STATION_COST = 20
+REFILL_COST = 1
+FARM_COST = 8
+
+rail_inventory = 0
+station_inventory = 0
+refill_inventory = 0
+farm_inventory = 0
+
 building_btn_list = {}
+building_btn_pos_list = {}
 building_btn_selected = nil
 
 TAB_BTN_MARGIN_LEFT = 4
@@ -207,7 +223,7 @@ TAB_BTN_SPACING_H = 12
 TAB_BTN_SZ = { x: 32, y: 8 }
 CARD_BTN_MARGIN_LEFT = TAB_BTN_MARGIN_LEFT + TAB_BTN_SZ.x + 4
 CARD_BTN_MARGIN_TOP = TAB_BTN_MARGIN_TOP
-CARD_BTN_SPACING_SZ = { x: 20, y: 20 }
+CARD_BTN_SPACING_SZ = { x: 20, y: 20 + 7 }
 CARD_BTN_SZ = { x: 16, y: 16 }
 
 STATS_POS = { x: 2, y: 2 }
@@ -296,36 +312,21 @@ create_menu_build = ->
 
 	x = CARD_BTN_MARGIN_LEFT
 	y = CARD_BTN_MARGIN_TOP
-	btn_rail = btn_new(vecnew(x, y), CARD_BTN_SZ, 32, vecnew(2, 2), '', (btn) ->
-		select_building_btn(btn)
-	)
+	btn_rail = create_building_btn(x, y, 32, BUILDING_RAIL)
 	select_building_btn(btn_rail)
-	btn_rail.building_type_tag = BUILDING_RAIL
 
 	x += CARD_BTN_SPACING_SZ.x
-	btn_restaurant = btn_new(vecnew(x, y), CARD_BTN_SZ, 34, vecnew(2, 2), '', (btn) ->
-		select_building_btn(btn)
-	)
-	btn_restaurant.building_type_tag = BUILDING_RESTAURANT
+	btn_restaurant = create_building_btn(x, y, 34, BUILDING_RESTAURANT)
 
 	x += CARD_BTN_SPACING_SZ.x
-	btn_station = btn_new(vecnew(x, y), CARD_BTN_SZ, 36, vecnew(2, 2), '', (btn) ->
-		select_building_btn(btn)
-	)
-	btn_station.building_type_tag = BUILDING_STATION
+	btn_station = create_building_btn(x, y, 36, BUILDING_STATION)
 
 	x += CARD_BTN_SPACING_SZ.x
-	btn_refill = btn_new(vecnew(x, y), CARD_BTN_SZ, 38, vecnew(2, 2), '', (btn) ->
-		select_building_btn(btn)
-	)
-	btn_refill.building_type_tag = BUILDING_REFILL
+	btn_refill = create_building_btn(x, y, 36, BUILDING_REFILL)
 
 	x = CARD_BTN_MARGIN_LEFT
 	y += CARD_BTN_SPACING_SZ.y
-	btn_farm = btn_new(vecnew(x, y), CARD_BTN_SZ, 40, vecnew(2, 2), '', (btn) ->
-		select_building_btn(btn)
-	)
-	btn_farm.building_type_tag = BUILDING_FARM
+	btn_farm = create_building_btn(x, y, 36, BUILDING_FARM)
 
 	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm }
 	building_btn_connect(4, 2)
@@ -340,6 +341,14 @@ create_menu_build = ->
 	nav_btn_list[2].highlight = true
 	connect_to_nav(nav_btn_list, btn_farm)
 	connect_to_nav(nav_btn_list, btn_rail)
+
+create_building_btn = (x, y, spr_id, building_type_tag) ->
+	btn = btn_new(vecnew(x, y), CARD_BTN_SZ, spr_id, vecnew(2, 2), '', (btn) ->
+		select_building_btn(btn)
+	)
+	btn.building_type_tag = building_type_tag
+	table.insert(building_btn_pos_list, { pos: vecnew(x, y), building_type_tag: building_type_tag })
+	return btn
 
 building_btn_connect = (grid_w, grid_h) ->
 	for x = 1, grid_w
@@ -591,6 +600,7 @@ menu_draw = (menu) ->
 	if menu == menu_build
 		rect(menu.pos.x, menu.pos.y, WINDOW_W, WINDOW_H, 14)
 		draw_desc(vecnew(menu.pos.x + 128, menu.pos.y + 4))
+		draw_building_costs()
 
 draw_desc = (pos) ->
 	if btn_selected.building_type_tag == nil
@@ -624,6 +634,29 @@ draw_desc = (pos) ->
 		print('FARM', pos.x, pos.y, 12, false, 1, true)
 		print('Create Refills', pos.x, pos.y + 9, 12, false, 1, true)
 		print('Refills are placed nearby', pos.x, pos.y + 11 + 7, 12, false, 1, true)
+
+draw_building_costs = () ->
+	for i, v in ipairs(building_btn_pos_list)
+		if v.building_type_tag == BUILDING_RAIL
+			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), RAIL_COST, rail_inventory)
+
+		if v.building_type_tag == BUILDING_RESTAURANT
+			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), RESTAURANT_COST, -1)
+
+		if v.building_type_tag == BUILDING_STATION
+			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), STATION_COST, station_inventory)
+
+		if v.building_type_tag == BUILDING_REFILL
+			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), REFILL_COST, refill_inventory)
+
+		if v.building_type_tag == BUILDING_FARM
+			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), FARM_COST, farm_inventory)
+			
+draw_building_cost_under_btn = (pos, cost, inventory) ->
+	print(cost, pos.x, pos.y + CARD_BTN_SZ.y + 2, 12, false, 1, true)
+
+	if inventory != -1
+		print(inventory, pos.x + 9, pos.y + CARD_BTN_SZ.y + 2, 4, false, 1, true)
 
 menu_add_ui = (menu, ui) ->
 	if menu.first_btn == nil and ui.type_tag == UI_BTN
