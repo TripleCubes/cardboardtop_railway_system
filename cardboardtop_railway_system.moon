@@ -95,6 +95,12 @@ local refill_rm_xy
 local refill_update
 local refill_draw
 
+local farm_new
+local farm_rm_xy
+local farm_update
+local farm_create_refill
+local farm_draw
+
 local draw
 local draw_rect
 local draw_list_draw
@@ -136,8 +142,9 @@ ENTITY_STATION = 1
 ENTITY_TRAIN = 2
 ENTITY_RESTAURANT = 3
 ENTITY_REFILL = 4
+ENTITY_FARM = 5
 
-BUILDING_ENTITY_LIST = { ENTITY_RAIL, ENTITY_STATION, ENTITY_RESTAURANT, ENTITY_REFILL }
+BUILDING_ENTITY_LIST = { ENTITY_RAIL, ENTITY_STATION, ENTITY_RESTAURANT, ENTITY_REFILL, ENTITY_FARM }
 
 rail_grid = {}
 RAIL_HORIZONTAL = 0
@@ -186,6 +193,7 @@ BUILDING_RAIL = 0
 BUILDING_RESTAURANT = 1
 BUILDING_STATION = 2
 BUILDING_REFILL = 3
+BUILDING_FARM = 4
 building_btn_list = {}
 building_btn_selected = nil
 
@@ -273,7 +281,7 @@ box_draw = ->
 	rect(draw_pos.x + (map_sz.x*8 - tape_w)/2, draw_pos.y, tape_w, map_sz.y*8, 3)
 	rect(draw_pos.x, draw_pos.y + (map_sz.y*8 - tape_h)/2, map_sz.x*8, tape_h, 3)
 
-	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 3)
+	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 2)
 
 create_menu_build = ->
 	menu_build = menu_new(nil, vecnew(0, WINDOW_H - 60))
@@ -305,13 +313,21 @@ create_menu_build = ->
 	)
 	btn_refill.building_type_tag = BUILDING_REFILL
 
-	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill }
-	building_btn_connect(4, 1)
+	x = CARD_BTN_MARGIN_LEFT
+	y += CARD_BTN_SPACING_SZ.y
+	btn_farm = btn_new(vecnew(x, y), CARD_BTN_SZ, 40, vecnew(2, 2), '', (btn) ->
+		select_building_btn(btn)
+	)
+	btn_farm.building_type_tag = BUILDING_FARM
+
+	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm }
+	building_btn_connect(4, 2)
 
 	menu_add_ui(menu, btn_rail)
 	menu_add_ui(menu, btn_restaurant)
 	menu_add_ui(menu, btn_station)
 	menu_add_ui(menu, btn_refill)
+	menu_add_ui(menu, btn_farm)
 
 	nav_btn_list = create_nav(menu)
 	nav_btn_list[2].highlight = true
@@ -324,6 +340,9 @@ building_btn_connect = (grid_w, grid_h) ->
 
 building_btn_connect_around = (grid_w, grid_h, x, y) ->
 	btn = get_building_btn_from_xy(grid_w, grid_h, x, y)
+	if btn == nil
+		return
+
 	if x - 1 >= 1
 		btn.left = get_building_btn_from_xy(grid_w, grid_h, x - 1, y)
 	if x + 1 <= grid_w
@@ -335,7 +354,9 @@ building_btn_connect_around = (grid_w, grid_h, x, y) ->
 
 get_building_btn_from_xy = (grid_w, grid_h, x, y) ->
 	i = (y - 1) * grid_w + (x - 1)
-	btn = building_btn_list[i + 1]
+	btn = nil
+	if i + 1 <= #building_btn_list
+		btn = building_btn_list[i + 1]
 	return btn
 
 game_controls_update = ->
@@ -386,12 +407,16 @@ cursor_controls = ->
 				station_new(cursor.pos)
 
 		if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
-			if btn(4)
+			if btnp(4)
 				restaurant_new(cursor.pos)
 
 		if building_btn_selected.building_type_tag == BUILDING_REFILL
-			if btn(4)
+			if btnp(4)
 				refill_new(cursor.pos)
+
+		if building_btn_selected.building_type_tag == BUILDING_FARM
+			if btnp(4)
+				farm_new(cursor.pos)
 			
 	if btn(5) and not exit_menu_holding_5
 		if cursor_sz.x == 16
@@ -407,6 +432,7 @@ building_rm = (pos) ->
 	station_rm_xy(pos)
 	restaurant_rm_xy(pos)
 	refill_rm_xy(pos)
+	farm_rm_xy(pos)
 		
 dpad_camera_update = ->
 	if btn(0)
@@ -493,6 +519,8 @@ cursor_draw = ->
 
 get_cursor_sz = ->
 	if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
+		return vecnew(16, 16)
+	if building_btn_selected.building_type_tag == BUILDING_FARM
 		return vecnew(16, 16)
 	return vecnew(8, 8)
 
@@ -700,6 +728,9 @@ btn_connect = (btn1, btn2, dir) ->
 --	rect(progress_bar.pos.x, progress_bar.pos.y, draw_w, 2, progress_bar.color)
 
 can_place = (grid_pos, sz) ->
+	if grid_pos.x < 1 or grid_pos.y < 1 or grid_pos.x > map_sz.x or grid_pos.y > map_sz.y
+		return false
+
 	if rail_grid[grid_pos.y][grid_pos.x] != -1
 		return false
 	
@@ -1109,10 +1140,13 @@ train_check_rm = (i, train) ->
 
 train_draw = (train) ->
 	draw_pos = get_draw_pos(train.pos)
+
 	if #train.path == 0
 		draw(64, draw_pos.x + 3, draw_pos.y - 16, 0, 1, 0, 0, 1, 2, vecnew(0, 0), 10)
+
 	if #train.path != 0 and not train.served
 		draw(65, draw_pos.x + 2, draw_pos.y - 10, 0, 1, 0, 0, 1, 1, vecnew(0, 0), 10)
+
 	draw(10, draw_pos.x, draw_pos.y - 10, 0, 1, 0, 0, 1, 2, vecadd(train.pos, vecnew(0, 0)), 0)
 
 train_check_path_all = ->
@@ -1193,6 +1227,7 @@ refill_new = (pos) ->
 		return
 
 	refill = entity_new(ENTITY_REFILL, pos, vecnew(8, 8), refill_update, refill_draw)
+	refill.rm_next_frame = false
 	return refill
 
 refill_rm_xy = (grid_pos) ->
@@ -1211,6 +1246,60 @@ refill_update = (i, refill) ->
 refill_draw = (refill) ->
 	draw_pos = get_draw_pos(refill.pos)
 	draw(13, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, refill.pos, 0)
+
+FARM_CREATE_REFILL_COOLDOWN = 32 * 60
+farm_new = (pos) ->
+	grid_pos = vecdivdiv(pos, 8)
+	if not can_place(grid_pos, vecnew(16, 16))
+		return
+
+	farm = entity_new(ENTITY_FARM, pos, vecnew(16, 16), farm_update, farm_draw)
+	farm.rm_next_frame = false
+	farm.until_refill = FARM_CREATE_REFILL_COOLDOWN
+	return farm
+
+farm_rm_xy = (grid_pos) ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_FARM
+			continue
+		if not rect_collide(vecmul(grid_pos, 8), vecnew(8, 8), v.pos, v.sz)
+			continue
+		v.rm_next_frame = true
+		return
+
+farm_update = (i, farm) ->
+	farm.until_refill -= 1
+	if farm.until_refill <= 0
+		farm.until_refill = FARM_CREATE_REFILL_COOLDOWN
+		farm_create_refill(farm)
+
+	if farm.rm_next_frame
+		table.remove(entity_list, i)
+
+farm_create_refill = (farm) ->
+	farm_grid_pos = vecdivdiv(farm.pos, 8)
+	pos_list = {}
+
+	for x = -1, 2
+		for y = -1, 2
+			if not can_place(vecadd(farm_grid_pos, vecnew(x, y)), vecnew(8, 8))
+				continue
+			table.insert(pos_list, vecnew(x, y))
+
+	if #pos_list == 0
+		return
+
+	i = rndi(1, #pos_list)
+	refill_new(vecadd(farm.pos, vecmul(pos_list[i], 8)))
+
+farm_draw = (farm) ->
+	draw_pos = get_draw_pos(farm.pos)
+	draw(45, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 2, 3, vecadd(farm.pos, vecnew(8, 8)), 0)
+
+	bar_w = 16
+	draw_rect(draw_pos.x, draw_pos.y - 4, bar_w, 2, 14, vecnew(0, 0), 11)
+	bar_filled_w = (1 - (farm.until_refill / FARM_CREATE_REFILL_COOLDOWN)) * bar_w
+	draw_rect(draw_pos.x, draw_pos.y - 4, bar_filled_w, 2, 6, vecnew(0, 0), 12)
 
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
@@ -1400,8 +1489,12 @@ find_in_list = (list, item) ->
 -- 037:00000000000000000000000000000000aa000000aaa00000aaa00000aaa00000
 -- 038:0000000000000000000000000000000000000333000003440000034400000333
 -- 039:0000000000000000000000000000000033300000443000004430000033300000
+-- 040:000000000000000000000050000005550000d5550000de5e0000d0300000d000
+-- 041:00000000000000000000000000000000dddd0000eeed00006666000066660000
 -- 043:0e3333330e3333330e33fff30e33fff30e33fff30e33fff30eeeeeee0fffffff
 -- 044:333333e0333333e03ccc33e03ccc33e0333333e0333333e0eeeeeee0fffffff0
+-- 045:00005500000055000005555000055550005555550056556500656656dd665566
+-- 046:00000000000000000000000000000000000000000000000000000000dddddddd
 -- 048:00000ee00000dddd0000eeee00000ff000000000000000000000000000000000
 -- 049:0ee00000dddd0000eeee00000ff0000000000000000000000000000000000000
 -- 050:0000022200000333000003ee000003ee00000000000000000000000000000000
@@ -1410,8 +1503,14 @@ find_in_list = (list, item) ->
 -- 053:99a0000099900000cc9000009990000000000000000000000000000000000000
 -- 054:0000022200000233000002330000022200000000000000000000000000000000
 -- 055:2220000033200000332000002220000000000000000000000000000000000000
+-- 056:0000d0000000d0000000dddd0000eeee00000000000000000000000000000000
+-- 057:6666000077770000777700007777000000000000000000000000000000000000
+-- 061:de666666d0066660d0003300d0003300d0000000d0000006d0333306d0344306
+-- 062:eeeeeeed0000000d0000000d0000000d0000000d666666666666666666666666
 -- 064:2200000022000000220000002200000022000000220000000000000000000000
 -- 065:6666000065560000666600000000000000000000000000000000000000000000
+-- 077:d0333306d0222206d0233206d0222207d0000007d0000007ddddddd7eeeeeee7
+-- 078:6666666666666666666666667777777777777777777777777777777777777777
 -- 080:2200000022000000000000000000000000000000000000000000000000000000
 -- </TILES>
 
