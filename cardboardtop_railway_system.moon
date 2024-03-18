@@ -28,6 +28,7 @@ local dpad_cursor_update
 
 local game_controls_draw
 local game_ui_draw
+local bottom_left_card_draw
 local cursor_draw
 local get_cursor_sz
 
@@ -177,7 +178,7 @@ cursor_move_hold_2 = 0
 cursor_move_hold_3 = 0
 exit_menu_holding_5 = false
 exit_menu_holding_4 = false
-money_count = 0
+money_count = 6
 CURSOR_MOVE_HOLD_TIME = 30
 
 DPAD_CAMERA = 0
@@ -250,8 +251,8 @@ export TIC = ->
 	entity_list_draw()
 	draw_list_draw()
 	game_controls_draw()
-	ui_list_draw()
 	game_ui_draw()
+	ui_list_draw()
 
 	if not btn(5)
 		exit_menu_holding_5 = false
@@ -322,11 +323,11 @@ create_menu_build = ->
 	btn_station = create_building_btn(x, y, 36, BUILDING_STATION)
 
 	x += CARD_BTN_SPACING_SZ.x
-	btn_refill = create_building_btn(x, y, 36, BUILDING_REFILL)
+	btn_refill = create_building_btn(x, y, 38, BUILDING_REFILL)
 
 	x = CARD_BTN_MARGIN_LEFT
 	y += CARD_BTN_SPACING_SZ.y
-	btn_farm = create_building_btn(x, y, 36, BUILDING_FARM)
+	btn_farm = create_building_btn(x, y, 40, BUILDING_FARM)
 
 	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm }
 	building_btn_connect(4, 2)
@@ -520,6 +521,51 @@ game_controls_draw = ->
 game_ui_draw = ->
 	spr(65, STATS_POS.x + 2, STATS_POS.y + 2, 0, 1, 0, 0, 1, 1)
 	print(money_count, STATS_POS.x + 8, STATS_POS.y + 1, 12, false, 1, true)
+
+	bottom_left_card_draw()
+
+bottom_left_card_draw = ->
+	if building_btn_selected == nil
+		return
+
+	if dpad_mode == DPAD_CAMERA
+		return
+
+	building_draw_pos = vecnew(2, WINDOW_H - CARD_BTN_SZ.y - 2)
+	building_spr_id = 0
+	building_cost = 0
+	building_inventory = 0
+	if building_btn_selected.building_type_tag == BUILDING_RAIL
+		building_spr_id = 32
+		building_cost = RAIL_COST
+		building_inventory = rail_inventory
+	if building_btn_selected.building_type_tag == BUILDING_RESTAURANT
+		building_spr_id = 34
+		building_cost = RESTAURANT_COST
+		building_inventory = -1
+	if building_btn_selected.building_type_tag == BUILDING_STATION
+		building_spr_id = 36
+		building_cost = STATION_COST
+		building_inventory = station_inventory
+	if building_btn_selected.building_type_tag == BUILDING_REFILL
+		building_spr_id = 38
+		building_cost = REFILL_COST
+		building_inventory = refill_inventory
+	if building_btn_selected.building_type_tag == BUILDING_FARM
+		building_spr_id = 40
+		building_cost = FARM_COST
+		building_inventory = farm_inventory
+	rect(building_draw_pos.x, building_draw_pos.y, CARD_BTN_SZ.x, CARD_BTN_SZ.y, 12)
+	spr(building_spr_id, building_draw_pos.x, building_draw_pos.y, 0, 1, 0, 0, 2, 2)
+
+	if building_inventory == -1
+		cost_str = 'cost: ' .. building_cost
+		print(cost_str, building_draw_pos.x + CARD_BTN_SZ.x + 2, building_draw_pos.y + 10, 12, false, 1, true)
+	else
+		cost_str = 'cost: ' .. building_cost
+		print(cost_str, building_draw_pos.x + CARD_BTN_SZ.x + 2, building_draw_pos.y + 3, 12, false, 1, true)
+		iv_str = 'inventory: ' .. building_inventory
+		print(iv_str, building_draw_pos.x + CARD_BTN_SZ.x + 2, building_draw_pos.y + 10, 12, false, 1, true)
 
 cursor_draw = ->
 	if dpad_mode != DPAD_CURSOR
