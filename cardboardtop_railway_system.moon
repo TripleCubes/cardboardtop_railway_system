@@ -10,6 +10,7 @@ local bkg_draw
 local box_draw
 
 local create_menu_build
+local draw_desc
 local building_btn_connect
 local building_btn_connect_around
 local get_building_btn_from_xy
@@ -337,6 +338,7 @@ create_menu_build = ->
 
 	nav_btn_list = create_nav(menu)
 	nav_btn_list[2].highlight = true
+	connect_to_nav(nav_btn_list, btn_farm)
 	connect_to_nav(nav_btn_list, btn_rail)
 
 building_btn_connect = (grid_w, grid_h) ->
@@ -588,6 +590,40 @@ menu_draw = (menu) ->
 
 	if menu == menu_build
 		rect(menu.pos.x, menu.pos.y, WINDOW_W, WINDOW_H, 14)
+		draw_desc(vecnew(menu.pos.x + 128, menu.pos.y + 4))
+
+draw_desc = (pos) ->
+	if btn_selected.building_type_tag == nil
+		return
+
+	if btn_selected.building_type_tag == BUILDING_RAIL
+		print('RAIL', pos.x, pos.y, 12, false, 1, true)
+		print('Rail', pos.x, pos.y + 9, 12, false, 1, true)
+
+	if btn_selected.building_type_tag == BUILDING_RESTAURANT
+		print('RESTAURANT', pos.x, pos.y, 12, false, 1, true)
+		print('When a train go near a', pos.x, pos.y + 9, 12, false, 1, true)
+		print('restaurant, money is', pos.x, pos.y + 9 + 7, 12, false, 1, true)
+		print('collected', pos.x, pos.y + 9 + 7*2, 12, false, 1, true)
+		print('Refill using Refill', pos.x, pos.y + 9 + 7*3 + 2, 12, false, 1, true)
+		print('Removed restaurant wont go', pos.x, pos.y + 9 + 7*4 + 2*2, 12, false, 1, true)
+		print('back to inventory', pos.x, pos.y + 9 + 7*5 + 2*2, 12, false, 1, true)
+
+	if btn_selected.building_type_tag == BUILDING_STATION
+		print('STATION', pos.x, pos.y, 12, false, 1, true)
+		print('Train go in and out of stations', pos.x, pos.y + 9, 12, false, 1, true)
+		print('Can only be placed at left and', pos.x, pos.y + 11 + 7, 12, false, 1, true)
+		print('right border of the map', pos.x, pos.y + 11 + 7*2, 12, false, 1, true)
+
+	if btn_selected.building_type_tag == BUILDING_REFILL
+		print('REFILL', pos.x, pos.y, 12, false, 1, true)
+		print('Place next to restaurant to', pos.x, pos.y + 9, 12, false, 1, true)
+		print('refill it', pos.x, pos.y + 9 + 7, 12, false, 1, true)
+
+	if btn_selected.building_type_tag == BUILDING_FARM
+		print('FARM', pos.x, pos.y, 12, false, 1, true)
+		print('Create Refills', pos.x, pos.y + 9, 12, false, 1, true)
+		print('Refills are placed nearby', pos.x, pos.y + 11 + 7, 12, false, 1, true)
 
 menu_add_ui = (menu, ui) ->
 	if menu.first_btn == nil and ui.type_tag == UI_BTN
