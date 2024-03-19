@@ -4,6 +4,7 @@
 -- script:  moon
 
 export get_money_need
+export map_expand
 
 export get_camera_limit
 
@@ -262,6 +263,7 @@ BUILDING_STATION = 2
 BUILDING_REFILL = 3
 BUILDING_FARM = 4
 BUILDING_ARCADE = 5
+MAP_EXPAND = 6
 
 RAIL_COST = 1
 RESTAURANT_COST = 8
@@ -269,6 +271,9 @@ STATION_COST = 6
 REFILL_COST = 2
 FARM_COST = 4
 ARCADE_COST = 10
+MAP_EXPAND_COST = 100
+MAP_EXPAND_COST_1 = 400
+expanded = 0
 
 rail_inventory = 0
 station_inventory = 0
@@ -292,13 +297,12 @@ CARD_BTN_SZ = { x: 16, y: 16 }
 STATS_POS = { x: 2, y: 2 }
 
 MAP_SZ_INIT = { x: 20, y: 12 }
+MAP_SZ_1 = { x: 30, y: 18 }
+MAP_SZ_MAX = { x: 40, y: 24 }
 CAMERA_INIT_POS = { x: (-WINDOW_W+MAP_SZ_INIT.x*8)/2 + 8, y: (-WINDOW_H+MAP_SZ_INIT.y*8)/2 + 8 }
 CAMERA_RANGE = { x: 70, y: 50 }
 
 export BOOT = ->
-	map_sz = veccopy(MAP_SZ_INIT)
-	camera.pos = veccopy(CAMERA_INIT_POS)
-
 	kb_controller_init()
 
 export TIC = ->
@@ -319,6 +323,15 @@ export TIC = ->
 
 get_money_need = (wave) ->
 	return (wave - 1) * 8 + (wave - 1) * 4 + 8
+
+map_expand = ->
+	if expanded == 0
+		expanded = 1
+		map_sz = MAP_SZ_1
+
+	elseif expanded == 1
+		expanded = 2
+		map_sz = MAP_SZ_MAX
 
 get_camera_limit = ->
 	pos = { x: (-WINDOW_W+map_sz.x*8)/2 + 8, y: (-WINDOW_H+map_sz.y*8)/2 + 8 }
@@ -356,6 +369,9 @@ btn_str = (btn_number) ->
 			return 'Y'
 
 game_init = ->
+	map_sz = veccopy(MAP_SZ_INIT)
+	camera.pos = veccopy(CAMERA_INIT_POS)
+
 	close_all_menus()
 	entity_list = {}
 	ui_list = {}
@@ -363,12 +379,15 @@ game_init = ->
 
 	cursor.pos = vecnew(8, 8)
 
+	dpad_mode = DPAD_CURSOR
 	money_count = 10 + RESTAURANT_COST
 	rail_inventory = 18
 	station_inventory = 2
 	refill_inventory = 0
 	farm_inventory = 0
 	arcade_inventory = 0
+
+	expanded = 0
 
 	time_remain = TIME_REMAIN_MAX
 	money_fullfilled = 0
@@ -379,9 +398,9 @@ game_init = ->
 	create_menu_build()
 	create_menu_game()
 
-	for y = 1, map_sz.y
+	for y = 1, MAP_SZ_MAX.y
 		table.insert(rail_grid, {})
-		for x = 1, map_sz.x
+		for x = 1, MAP_SZ_MAX.x
 			table.insert(rail_grid[y], -1)
 
 	init_buildings()
@@ -395,6 +414,9 @@ init_buildings = ->
 	restaurant_new(vecnew(13*8, 4*8))
 
 start_init = ->
+	map_sz = veccopy(MAP_SZ_INIT)
+	camera.pos = veccopy(CAMERA_INIT_POS)
+
 	close_all_menus()
 	entity_list = {}
 	ui_list = {}
@@ -409,9 +431,9 @@ start_init = ->
 	farm_inventory = 0
 	arcade_inventory = 0
 
-	for y = 1, map_sz.y
+	for y = 1, MAP_SZ_MAX.y
 		table.insert(rail_grid, {})
-		for x = 1, map_sz.x
+		for x = 1, MAP_SZ_MAX.x
 			table.insert(rail_grid[y], -1)
 
 	init_buildings()
@@ -484,7 +506,7 @@ start = ->
 
 	x = WINDOW_W - 4
 	y = WINDOW_H - 4 - 8
-	help_text_draw_at(vecnew(x, y), btn_str(4)..': press button')
+	help_text_draw_at(vecnew(x, y), btn_str(4)..': select')
 
 create_start_screen_menu = ->
 	btn_play = btn_new(vecnew(4, 34), vecnew(60, 8), -1, vecnew(0, 0), 'Play', () ->
@@ -624,7 +646,10 @@ create_menu_build = ->
 	x += CARD_BTN_SPACING_SZ.x
 	btn_arcade = create_building_btn(x, y, 72, BUILDING_ARCADE)
 
-	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm, btn_arcade }
+	x += CARD_BTN_SPACING_SZ.x
+	btn_expand = create_building_btn(x, y, 70, MAP_EXPAND)
+
+	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm, btn_arcade, btn_expand }
 	building_btn_connect(4, 2)
 
 	menu_add_ui(menu, btn_rail)
@@ -633,6 +658,7 @@ create_menu_build = ->
 	menu_add_ui(menu, btn_refill)
 	menu_add_ui(menu, btn_farm)
 	menu_add_ui(menu, btn_arcade)
+	menu_add_ui(menu, btn_expand)
 
 	nav_btn_list = create_nav(menu)
 	nav_btn_list[2].highlight = true
@@ -768,6 +794,17 @@ cursor_controls = ->
 		if building_btn_selected.building_type_tag == BUILDING_ARCADE
 			if btnp(4)
 				arcade_new(cursor.pos)
+
+		if building_btn_selected.building_type_tag == MAP_EXPAND
+			if btnp(4)
+				if expanded == 0
+					if money_count >= MAP_EXPAND_COST
+						map_expand()
+						money_count -= MAP_EXPAND_COST
+				elseif expanded == 1
+					if money_count >= MAP_EXPAND_COST_1
+						map_expand()
+						money_count -= MAP_EXPAND_COST_1
 			
 	if btn(5) and not exit_menu_holding_5
 		if cursor_sz.x == 16
@@ -869,7 +906,7 @@ game_controls_draw = ->
 	cursor_draw()
 
 game_ui_draw = ->
-	if show_goal_text > 0
+	if show_goal_text > 0 and dpad_mode == DPAD_CURSOR
 		print('^', 4, 28, 12, false, 1, true)
 		print('Get enough money', 4, 36, 12, false, 1, true)
 		print('Before time run out', 4, 44, 12, false, 1, true)
@@ -885,6 +922,9 @@ game_ui_draw = ->
 	camera_arrows_draw()
 
 draw_goals = (pos) ->
+	if dpad_mode != DPAD_CURSOR
+		return
+
 	print('goal: '..money_fullfilled..'/'..get_money_need(wave), pos.x, pos.y, 12, false, 1, true)
 	rect(pos.x, pos.y + 10, 30, 2, 14)
 	bar_w = 30 * (time_remain/TIME_REMAIN_MAX)
@@ -916,7 +956,7 @@ help_text_draw = () ->
 			help_text_draw_at(vecnew(x, y), btn_str(6)..': cursor mode')
 
 	else
-		help_text_draw_at(vecnew(x, y), btn_str(4)..': press button')
+		help_text_draw_at(vecnew(x, y), btn_str(4)..': select')
 		y += 8
 		help_text_draw_at(vecnew(x, y), btn_str(7)..'/'.. btn_str(5) ..': exit_menu')
 
@@ -959,11 +999,24 @@ bottom_left_card_draw = ->
 		building_spr_id = 72
 		building_cost = ARCADE_COST
 		building_inventory = arcade_inventory
+	if building_btn_selected.building_type_tag == MAP_EXPAND
+		building_spr_id = 70
+		if expanded == 0
+			building_cost = MAP_EXPAND_COST
+		elseif expanded == 1
+			building_cost = MAP_EXPAND_COST_1
+		else
+			building_cost = -1
+		building_inventory = -1
 	rect(building_draw_pos.x, building_draw_pos.y, CARD_BTN_SZ.x, CARD_BTN_SZ.y, 12)
 	spr(building_spr_id, building_draw_pos.x, building_draw_pos.y, 0, 1, 0, 0, 2, 2)
 
 	if building_inventory == -1
-		cost_str = 'cost: ' .. building_cost
+		cost_str = ''
+		if building_cost == -1
+			cost_str = 'map size maxed'
+		else
+			cost_str = 'cost: ' .. building_cost
 		print(cost_str, building_draw_pos.x + CARD_BTN_SZ.x + 2, building_draw_pos.y + 10, 12, false, 1, true)
 	else
 		cost_str = 'cost: ' .. building_cost
@@ -1103,6 +1156,12 @@ draw_desc = (pos) ->
 		print('collected by restaurant again', pos.x, pos.y + 9 + 7, 12, false, 1, true)
 		print('Only work once for each train', pos.x, pos.y + 11 + 7*2, 12, false, 1, true)
 
+	if btn_selected.building_type_tag == MAP_EXPAND
+		print('MAP_EXPAND', pos.x, pos.y, 12, false, 1, true)
+		print('Place anywhere to expand the', pos.x, pos.y + 9, 12, false, 1, true)
+		print('map', pos.x, pos.y + 9 + 7, 12, false, 1, true)
+		print('Can only be used 2 times', pos.x, pos.y + 11 + 7*2, 12, false, 1, true)
+
 draw_building_costs = () ->
 	for i, v in ipairs(building_btn_pos_list)
 		if v.building_type_tag == BUILDING_RAIL
@@ -1122,9 +1181,20 @@ draw_building_costs = () ->
 
 		if v.building_type_tag == BUILDING_ARCADE
 			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), ARCADE_COST, arcade_inventory)
+
+		if v.building_type_tag == MAP_EXPAND
+			if expanded == 0
+				draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), MAP_EXPAND_COST, -1)
+			elseif expanded == 1
+				draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), MAP_EXPAND_COST_1, -1)
+			else
+				draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), -1, -1)
 			
 draw_building_cost_under_btn = (pos, cost, inventory) ->
-	print(cost, pos.x, pos.y + CARD_BTN_SZ.y + 2, 12, false, 1, true)
+	if cost == -1
+		print('max', pos.x, pos.y + CARD_BTN_SZ.y + 2, 12, false, 1, true)
+	else
+		print(cost, pos.x, pos.y + CARD_BTN_SZ.y + 2, 12, false, 1, true)
 
 	if inventory != -1
 		print(inventory, pos.x + 9, pos.y + CARD_BTN_SZ.y + 2, 4, false, 1, true)
@@ -1496,7 +1566,7 @@ station_create_train = (station) ->
 	if not station.have_path
 		return
 
-	if (t-station.created_at) % (60*12) != 0
+	if (t-station.created_at-(60*2)) % (60*12) != 0
 		return
 
 	grid_pos = vecdivdiv(station.pos, 8)
@@ -1649,7 +1719,7 @@ recursion_train_get_path = (path, grid, xy) ->
 		if grid[next_pos.y][next_pos.x] == true
 			continue
 
-		if next_pos.x == map_sz.x
+		if next_pos.x == MAP_SZ_INIT.x or next_pos.x == MAP_SZ_1.x or next_pos.x == MAP_SZ_MAX.x
 			for j, v2 in ipairs(entity_list)
 				if v2.type_tag != ENTITY_STATION
 					continue
@@ -2166,6 +2236,8 @@ find_in_list = (list, item) ->
 -- 062:eeeeeeed0000000d0000000d0000000d0000000d666666666666666666666666
 -- 064:2200000022000000220000002200000022000000220000000000000000000000
 -- 065:6666000065560000666600000000000000000000000000000000000000000000
+-- 070:00000000000000000000000d000000dd0000000000000033000d003300dd0033
+-- 071:0000000000000000d0000000dd00000000000000330000003300d0003300dd00
 -- 072:0000000000000000000000000000444400004ccc00004caa00004caa00004ccc
 -- 073:00000000000000000000000044440000ccc4000024c4000055c40000ccc40000
 -- 074:caa2244ccaa2244ccaa5555ccaa5555cccccccccdddddddddddddddddddddddd
@@ -2176,6 +2248,8 @@ find_in_list = (list, item) ->
 -- 082:0000000000000000000000000ccccc0000ccc000000c00000000000000000000
 -- 083:000000000000c000000cc00000ccc000000cc0000000c0000000000000000000
 -- 084:00000000000c0000000cc000000ccc00000cc000000c00000000000000000000
+-- 086:00dd0022000d00220000000000000000000000dd0000000d0000000000000000
+-- 087:2200dd002200d0000000000000000000dd000000d00000000000000000000000
 -- 088:00004ddd00004ddd00004ddd0000444400000000000000000000000000000000
 -- 089:ddd40000ddd40000ddd400004444000000000000000000000000000000000000
 -- </TILES>
