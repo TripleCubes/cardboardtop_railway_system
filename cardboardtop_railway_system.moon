@@ -1071,14 +1071,17 @@ can_place = (grid_pos, sz) ->
 	return true
 
 rail_new = (pos) ->
-	if money_count < RAIL_COST
+	if money_count < RAIL_COST and rail_inventory == 0
 		return
 
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(8, 8))
 		return
 
-	money_count -= RAIL_COST
+	if rail_inventory != 0
+		rail_inventory -= 1
+	else
+		money_count -= RAIL_COST
 
 	rail = entity_new(ENTITY_RAIL, pos, vecnew(8, 8), rail_update, rail_draw)
 	rail.rail_type_tag = RAIL_HORIZONTAL
@@ -1093,15 +1096,6 @@ rail_new = (pos) ->
 
 	return rail
 
-rail_rm = (rail) ->
-	rail.rm_next_frame = true
-	grid_pos = vecdivdiv(rail.pos, 8)
-	if rail_grid[grid_pos.y][grid_pos.x] != -1
-		rail_grid[grid_pos.y][grid_pos.x] = -1
-		train_check_path_all()
-		station_check_path_all()
-	update_surround_rail_type_tag(grid_pos.x, grid_pos.y)
-
 rail_rm_xy = (grid_pos) ->
 	x = grid_pos.x
 	y = grid_pos.y
@@ -1110,6 +1104,7 @@ rail_rm_xy = (grid_pos) ->
 		rail_grid[y][x] = -1
 		train_check_path_all()
 		station_check_path_all()
+		rail_inventory += 1
 	update_surround_rail_type_tag(x, y)
 
 set_rail_type_tag = (x, y) ->
@@ -1230,7 +1225,7 @@ rail_draw = (rail) ->
 	draw(spr_id, draw_pos.x, draw_pos.y, 0, 1, flip, 0, 1, 1, rail.pos, -1)
 
 station_new = (pos) ->
-	if money_count < STATION_COST
+	if money_count < STATION_COST and station_inventory == 0
 		return
 
 	grid_pos = vecdivdiv(pos, 8)
@@ -1240,7 +1235,10 @@ station_new = (pos) ->
 	if cursor.pos.x != 8 and cursor.pos.x != map_sz.x * 8
 		return
 
-	money_count -= STATION_COST
+	if station_inventory != 0
+		station_inventory -= 1
+	else
+		money_count -= STATION_COST
 
 	station = entity_new(ENTITY_STATION, pos, vecnew(8, 8), station_update, station_draw)
 	station.rm_next_frame = false
@@ -1252,17 +1250,6 @@ station_new = (pos) ->
 
 	return station
 
-station_rm = (station) ->
-	for i, v in ipairs(entity_list)
-		if v.type_tag != ENTITY_STATION
-			continue
-		if station != v
-			continue
-		station.rm_next_frame = true
-		train_check_path_all()
-		station_check_path_all()
-		return
-
 station_rm_xy = (grid_pos) ->
 	for i, v in ipairs(entity_list)
 		if v.type_tag != ENTITY_STATION
@@ -1273,6 +1260,7 @@ station_rm_xy = (grid_pos) ->
 		v.rm_next_frame = true
 		train_check_path_all()
 		station_check_path_all()
+		station_inventory += 1
 		return
 
 station_update = (i, station) ->
@@ -1575,14 +1563,17 @@ restaurant_draw = (restaurant) ->
 		draw_text('+1', draw_pos.x + 4, draw_pos.y - 12, 5, false, 1, true, vecnew(0, 0), 10)
 
 refill_new = (pos) ->
-	if money_count < REFILL_COST
+	if money_count < REFILL_COST and refill_inventory == 0
 		return
 
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(8, 8))
 		return
 
-	money_count -= REFILL_COST
+	if refill_inventory != 0
+		refill_inventory -= 1
+	else
+		money_count -= REFILL_COST
 
 	refill = entity_new(ENTITY_REFILL, pos, vecnew(8, 8), refill_update, refill_draw)
 	refill.rm_next_frame = false
@@ -1595,6 +1586,7 @@ refill_rm_xy = (grid_pos) ->
 		if not vecequals(grid_pos, vecdivdiv(v.pos, 8))
 			continue
 		v.rm_next_frame = true
+		refill_inventory += 1
 		return
 
 refill_update = (i, refill) ->
@@ -1607,14 +1599,17 @@ refill_draw = (refill) ->
 
 FARM_CREATE_REFILL_COOLDOWN = 32 * 60
 farm_new = (pos) ->
-	if money_count < FARM_COST
+	if money_count < FARM_COST and farm_inventory == 0
 		return
 
 	grid_pos = vecdivdiv(pos, 8)
 	if not can_place(grid_pos, vecnew(16, 16))
 		return
 
-	money_count -= FARM_COST
+	if farm_inventory != 0
+		farm_inventory -= 1
+	else
+		money_count -= FARM_COST
 
 	farm = entity_new(ENTITY_FARM, pos, vecnew(16, 16), farm_update, farm_draw)
 	farm.rm_next_frame = false
@@ -1628,6 +1623,7 @@ farm_rm_xy = (grid_pos) ->
 		if not rect_collide(vecmul(grid_pos, 8), vecnew(8, 8), v.pos, v.sz)
 			continue
 		v.rm_next_frame = true
+		farm_inventory += 1
 		return
 
 farm_update = (i, farm) ->
