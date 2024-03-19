@@ -3,6 +3,8 @@
 -- license: MIT License
 -- script:  moon
 
+export get_camera_limit
+
 export btn_str
 
 export game_init
@@ -261,9 +263,13 @@ CARD_BTN_SZ = { x: 16, y: 16 }
 
 STATS_POS = { x: 2, y: 2 }
 
+MAP_SZ_INIT = { x: 16, y: 10 }
+CAMERA_INIT_POS = { x: (-WINDOW_W+MAP_SZ_INIT.x*8)/2 + 8, y: (-WINDOW_H+MAP_SZ_INIT.y*8)/2 + 8 }
+CAMERA_RANGE = { x: 70, y: 50 }
+
 export BOOT = ->
-	map_sz = vecnew(16, 10)
-	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
+	map_sz = veccopy(MAP_SZ_INIT)
+	camera.pos = veccopy(CAMERA_INIT_POS)
 
 	kb_controller_init()
 
@@ -282,6 +288,10 @@ export TIC = ->
 		exit_menu_holding_5 = false
 	if not btn(4)
 		exit_menu_holding_4 = false
+
+get_camera_limit = ->
+	pos = { x: (-WINDOW_W+map_sz.x*8)/2 + 8, y: (-WINDOW_H+map_sz.y*8)/2 + 8 }
+	return vecsub(pos, CAMERA_RANGE), vecadd(pos, CAMERA_RANGE)
 
 btn_str = (btn_number) ->
 	n = btn_number
@@ -512,7 +522,7 @@ box_draw = ->
 	rect(draw_pos.x + (map_sz.x*8 - tape_w)/2, draw_pos.y, tape_w, map_sz.y*8, 3)
 	rect(draw_pos.x, draw_pos.y + (map_sz.y*8 - tape_h)/2, map_sz.x*8, tape_h, 3)
 
-	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 2)
+	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 7 * 8, 2)
 
 create_menu_build = ->
 	menu_build = menu_new(nil, vecnew(0, WINDOW_H - 60))
@@ -694,6 +704,16 @@ dpad_camera_update = ->
 		camera.pos.x -= 1
 	if btn(3)
 		camera.pos.x += 1
+	
+	top_left, bottom_right = get_camera_limit()
+	if camera.pos.x < top_left.x
+		camera.pos.x = top_left.x
+	if camera.pos.x > bottom_right.x
+		camera.pos.x = bottom_right.x
+	if camera.pos.y < top_left.y
+		camera.pos.y = top_left.y
+	if camera.pos.y > bottom_right.y
+		camera.pos.y = bottom_right.y
 
 dpad_cursor_update = ->
 	move = vecnew(0, 0)
