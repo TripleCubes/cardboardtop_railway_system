@@ -128,6 +128,12 @@ export farm_update
 export farm_create_refill
 export farm_draw
 
+export arcade_new
+export arcade_rm_xy
+export arcade_update
+export arcade_arcade
+export arcade_draw
+
 export draw
 export draw_rect
 export draw_text
@@ -171,8 +177,16 @@ ENTITY_TRAIN = 2
 ENTITY_RESTAURANT = 3
 ENTITY_REFILL = 4
 ENTITY_FARM = 5
+ENTITY_ARCADE = 6
 
-BUILDING_ENTITY_LIST = { ENTITY_RAIL, ENTITY_STATION, ENTITY_RESTAURANT, ENTITY_REFILL, ENTITY_FARM }
+BUILDING_ENTITY_LIST = {
+	ENTITY_RAIL,
+	ENTITY_STATION,
+	ENTITY_RESTAURANT,
+	ENTITY_REFILL,
+	ENTITY_FARM,
+	ENTITY_ARCADE,
+}
 
 rail_grid = {}
 RAIL_HORIZONTAL = 0
@@ -237,17 +251,20 @@ BUILDING_RESTAURANT = 1
 BUILDING_STATION = 2
 BUILDING_REFILL = 3
 BUILDING_FARM = 4
+BUILDING_ARCADE = 5
 
 RAIL_COST = 1
 RESTAURANT_COST = 12
 STATION_COST = 20
 REFILL_COST = 3
 FARM_COST = 12
+ARCADE_COST = 24
 
 rail_inventory = 0
 station_inventory = 0
 refill_inventory = 0
 farm_inventory = 0
+arcade_inventory = 0
 
 building_btn_list = {}
 building_btn_pos_list = {}
@@ -264,7 +281,7 @@ CARD_BTN_SZ = { x: 16, y: 16 }
 
 STATS_POS = { x: 2, y: 2 }
 
-MAP_SZ_INIT = { x: 16, y: 10 }
+MAP_SZ_INIT = { x: 20, y: 12 }
 CAMERA_INIT_POS = { x: (-WINDOW_W+MAP_SZ_INIT.x*8)/2 + 8, y: (-WINDOW_H+MAP_SZ_INIT.y*8)/2 + 8 }
 CAMERA_RANGE = { x: 70, y: 50 }
 
@@ -333,12 +350,13 @@ game_init = ->
 
 	cursor.pos = vecnew(8, 8)
 
-	money_count = 6
+	money_count = 100000
 	rail_inventory = 0
 	restaurant_inventory = 0
 	station_inventory = 0
 	refill_inventory = 0
 	farm_inventory = 0
+	arcade_inventory = 0
 
 	create_menu_build()
 	create_menu_game()
@@ -547,7 +565,10 @@ create_menu_build = ->
 	y += CARD_BTN_SPACING_SZ.y
 	btn_farm = create_building_btn(x, y, 40, BUILDING_FARM)
 
-	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm }
+	x += CARD_BTN_SPACING_SZ.x
+	btn_arcade = create_building_btn(x, y, 72, BUILDING_ARCADE)
+
+	building_btn_list = { btn_rail, btn_restaurant, btn_station, btn_refill, btn_farm, btn_arcade }
 	building_btn_connect(4, 2)
 
 	menu_add_ui(menu, btn_rail)
@@ -555,6 +576,7 @@ create_menu_build = ->
 	menu_add_ui(menu, btn_station)
 	menu_add_ui(menu, btn_refill)
 	menu_add_ui(menu, btn_farm)
+	menu_add_ui(menu, btn_arcade)
 
 	nav_btn_list = create_nav(menu)
 	nav_btn_list[2].highlight = true
@@ -679,6 +701,10 @@ cursor_controls = ->
 		if building_btn_selected.building_type_tag == BUILDING_FARM
 			if btnp(4)
 				farm_new(cursor.pos)
+
+		if building_btn_selected.building_type_tag == BUILDING_ARCADE
+			if btnp(4)
+				arcade_new(cursor.pos)
 			
 	if btn(5) and not exit_menu_holding_5
 		if cursor_sz.x == 16
@@ -695,6 +721,7 @@ building_rm = (pos) ->
 	restaurant_rm_xy(pos)
 	refill_rm_xy(pos)
 	farm_rm_xy(pos)
+	arcade_rm_xy(pos)
 		
 dpad_camera_update = ->
 	if btn(0)
@@ -846,6 +873,10 @@ bottom_left_card_draw = ->
 		building_spr_id = 40
 		building_cost = FARM_COST
 		building_inventory = farm_inventory
+	if building_btn_selected.building_type_tag == BUILDING_ARCADE
+		building_spr_id = 72
+		building_cost = ARCADE_COST
+		building_inventory = arcade_inventory
 	rect(building_draw_pos.x, building_draw_pos.y, CARD_BTN_SZ.x, CARD_BTN_SZ.y, 12)
 	spr(building_spr_id, building_draw_pos.x, building_draw_pos.y, 0, 1, 0, 0, 2, 2)
 
@@ -984,6 +1015,12 @@ draw_desc = (pos) ->
 		print('Create Refills', pos.x, pos.y + 9, 12, false, 1, true)
 		print('Refills are placed nearby', pos.x, pos.y + 11 + 7, 12, false, 1, true)
 
+	if btn_selected.building_type_tag == BUILDING_ARCADE
+		print('ARCADE', pos.x, pos.y, 12, false, 1, true)
+		print('Trains go near can have money', pos.x, pos.y + 9, 12, false, 1, true)
+		print('collected by restaurant again', pos.x, pos.y + 9 + 7, 12, false, 1, true)
+		print('Only work once for each train', pos.x, pos.y + 11 + 7*2, 12, false, 1, true)
+
 draw_building_costs = () ->
 	for i, v in ipairs(building_btn_pos_list)
 		if v.building_type_tag == BUILDING_RAIL
@@ -1000,6 +1037,9 @@ draw_building_costs = () ->
 
 		if v.building_type_tag == BUILDING_FARM
 			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), FARM_COST, farm_inventory)
+
+		if v.building_type_tag == BUILDING_ARCADE
+			draw_building_cost_under_btn(vecadd(v.pos, menu_build.pos), ARCADE_COST, arcade_inventory)
 			
 draw_building_cost_under_btn = (pos, cost, inventory) ->
 	print(cost, pos.x, pos.y + CARD_BTN_SZ.y + 2, 12, false, 1, true)
@@ -1465,7 +1505,8 @@ station_check_path = (station) ->
 train_new = (pos) ->
 	train = entity_new(ENTITY_TRAIN, pos, vecnew(8, 8), train_update, train_draw)
 	train.path = train_get_path(train)
-	train.served = fasle
+	train.arcaded = false
+	train.served = false
 	return train
 
 train_update = (i, train) ->
@@ -1761,6 +1802,57 @@ farm_draw = (farm) ->
 	bar_filled_w = (1 - (farm.until_refill / FARM_CREATE_REFILL_COOLDOWN)) * bar_w
 	draw_rect(draw_pos.x, draw_pos.y - 4, bar_filled_w, 2, 6, vecnew(0, 0), 12)
 
+arcade_new = (pos) ->
+	if money_count < ARCADE_COST and arcade_inventory == 0
+		return
+
+	grid_pos = vecdivdiv(pos, 8)
+	if not can_place(grid_pos, vecnew(8, 8))
+		return
+
+	if arcade_inventory != 0
+		arcade_inventory -= 1
+	else
+		money_count -= ARCADE_COST
+
+	arcade = entity_new(ENTITY_ARCADE, pos, vecnew(8, 8), arcade_update, arcade_draw)
+	arcade.rm_next_frame = false
+	return arcade
+
+arcade_rm_xy = (grid_pos) ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_ARCADE
+			continue
+		if not rect_collide(vecmul(grid_pos, 8), vecnew(8, 8), v.pos, v.sz)
+			continue
+		v.rm_next_frame = true
+		arcade_inventory += 1
+		return
+
+arcade_update = (i, arcade) ->
+	arcade_arcade(arcade)
+
+	if arcade.rm_next_frame
+		table.remove(entity_list, i)
+
+arcade_arcade = (arcade) ->
+	for i, v in ipairs(entity_list)
+		if v.type_tag != ENTITY_TRAIN
+			continue
+
+		if not rect_collide(v.pos, v.sz, vecsub(arcade.pos, vecnew(8, 8)), vecnew(24, 24))
+			continue
+
+		if v.arcaded
+			continue
+
+		v.arcaded = true
+		v.served = false
+
+arcade_draw = (arcade) ->
+	draw_pos = get_draw_pos(arcade.pos)
+	draw(58, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, arcade.pos, 0)
+
 entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 	e = {
 		type_tag: type_tag,
@@ -1985,10 +2077,14 @@ find_in_list = (list, item) ->
 -- 055:2220000033200000332000002220000000000000000000000000000000000000
 -- 056:0000d0000000d0000000dddd0000eeee00000000000000000000000000000000
 -- 057:6666000077770000777700007777000000000000000000000000000000000000
+-- 058:00000000000000000000000000000000000000000000000000000000cccccccc
 -- 061:de666666d0066660d0003300d0003300d0000000d0000006d0333306d0344306
 -- 062:eeeeeeed0000000d0000000d0000000d0000000d666666666666666666666666
 -- 064:2200000022000000220000002200000022000000220000000000000000000000
 -- 065:6666000065560000666600000000000000000000000000000000000000000000
+-- 072:0000000000000000000000000000444400004ccc00004caa00004caa00004ccc
+-- 073:00000000000000000000000044440000ccc4000024c4000055c40000ccc40000
+-- 074:caa2244ccaa2244ccaa5555ccaa5555cccccccccdddddddddddddddddddddddd
 -- 077:d0333306d0222206d0233206d0222207d0000007d0000007ddddddd7eeeeeee7
 -- 078:6666666666666666666666667777777777777777777777777777777777777777
 -- 080:2200000022000000000000000000000000000000000000000000000000000000
@@ -1996,6 +2092,8 @@ find_in_list = (list, item) ->
 -- 082:0000000000000000000000000ccccc0000ccc000000c00000000000000000000
 -- 083:000000000000c000000cc00000ccc000000cc0000000c0000000000000000000
 -- 084:00000000000c0000000cc000000ccc00000cc000000c00000000000000000000
+-- 088:00004ddd00004ddd00004ddd0000444400000000000000000000000000000000
+-- 089:ddd40000ddd40000ddd400004444000000000000000000000000000000000000
 -- </TILES>
 
 -- <MAP>
