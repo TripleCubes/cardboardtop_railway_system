@@ -24,6 +24,7 @@ export box_draw
 
 export create_menu_build
 export create_building_btn
+export create_menu_game
 export draw_desc
 export draw_building_costs
 export draw_building_cost_under_btn
@@ -217,6 +218,7 @@ UI_PROGRESS_BAR
 ui_list = {}
 
 menu_build = {}
+menu_game = {}
 menu_kb_controller = {}
 menu_opening = nil
 
@@ -278,13 +280,22 @@ export TIC = ->
 		exit_menu_holding_4 = false
 
 game_init = ->
+	close_all_menus()
 	entity_list = {}
 	ui_list = {}
 	rail_grid = {}
 
 	cursor.pos = vecnew(8, 8)
 
+	money_count = 6
+	rail_inventory = 0
+	restaurant_inventory = 0
+	station_inventory = 0
+	refill_inventory = 0
+	farm_inventory = 0
+
 	create_menu_build()
+	create_menu_game()
 
 	for y = 1, map_sz.y
 		table.insert(rail_grid, {})
@@ -292,6 +303,7 @@ game_init = ->
 			table.insert(rail_grid[y], -1)
 
 start_init = ->
+	close_all_menus()
 	entity_list = {}
 	ui_list = {}
 	rail_grid = {}
@@ -299,6 +311,7 @@ start_init = ->
 	create_start_screen_menu()
 
 kb_controller_init = ->
+	close_all_menus()
 	entity_list = {}
 	ui_list = {}
 	rail_grid = {}
@@ -422,11 +435,11 @@ create_nav = (menu) ->
 	)
 	y += TAB_BTN_SPACING_H
 	btn_build = btn_new(vecnew(TAB_BTN_MARGIN_LEFT, y), TAB_BTN_SZ, 17, vecnew(1, 1), 'Build', (btn) ->
-		trace('btn 2 pressed')
+		open_menu(menu_build)
 	)
 	y += TAB_BTN_SPACING_H
 	btn_game = btn_new(vecnew(TAB_BTN_MARGIN_LEFT, y), TAB_BTN_SZ, 18, vecnew(1, 1), 'Game', (btn) ->
-		trace('btn 2 pressed')
+		open_menu(menu_game)
 	)
 
 	nav_btn_list = { btn_back, btn_build, btn_game, }
@@ -501,6 +514,32 @@ create_building_btn = (x, y, spr_id, building_type_tag) ->
 	btn.building_type_tag = building_type_tag
 	table.insert(building_btn_pos_list, { pos: vecnew(x, y), building_type_tag: building_type_tag })
 	return btn
+
+create_menu_game = ->
+	menu_game = menu_new(nil, vecnew(0, WINDOW_H - 60))
+
+	x = CARD_BTN_MARGIN_LEFT
+	y = CARD_BTN_MARGIN_TOP
+
+	btn_restart = btn_new(vecnew(x, y), vecnew(30, 8), -1, vecnew(0, 0), 'Restart', (btn) ->
+		game_init()
+		exit_menu_holding_4 = true
+	)
+	x += 30 + 4
+	btn_start_menu = btn_new(vecnew(x, y), vecnew(64, 8), -1, vecnew(0, 0), 'Back to main menu', (btn) ->
+		start_init()
+		at = AT_START
+		exit_menu_holding_4 = true
+	)
+
+	menu_add_ui(menu_game, btn_restart)
+	menu_add_ui(menu_game, btn_start_menu)
+
+	nav_btn_list = create_nav(menu_game)
+	nav_btn_list[3].highlight = true
+	connect_to_nav(nav_btn_list, btn_restart)
+
+	btn_connect(btn_restart, btn_start_menu, RIGHT)
 
 building_btn_connect = (grid_w, grid_h) ->
 	for x = 1, grid_w
@@ -757,6 +796,8 @@ ui_new = (type_tag, update_func, draw_func) ->
 ui_list_update = ->
 	for i = #ui_list, 1, -1
 		v = ui_list[i]
+		if v == nil
+			break
 		v.update(i, v)
 
 ui_list_draw = ->
@@ -766,6 +807,7 @@ ui_list_draw = ->
 open_menu = (menu) ->
 	menu_opening = menu
 	btn_selected = menu.first_btn
+	exit_menu_holding_4 = true
 
 close_all_menus = () ->
 	menu_opening = nil
@@ -801,6 +843,9 @@ menu_draw = (menu) ->
 		rect(menu.pos.x, menu.pos.y, WINDOW_W, WINDOW_H, 14)
 		draw_desc(vecnew(menu.pos.x + 128, menu.pos.y + 4))
 		draw_building_costs()
+
+	if menu == menu_game
+		rect(menu.pos.x, menu.pos.y, WINDOW_W, WINDOW_H, 14)
 
 	if menu == menu_kb_controller
 		print('Are you using keyboard or controller?', 4, 4, 12, false, 1, true)
@@ -1633,6 +1678,8 @@ entity_new = (type_tag, pos, sz, update_func, draw_func) ->
 entity_list_update = () ->
 	for i = #entity_list, 1, -1
 		v = entity_list[i]
+		if v == nil
+			break
 		v.update(i, v)
 
 entity_list_draw = () ->
