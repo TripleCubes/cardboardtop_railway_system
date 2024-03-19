@@ -269,8 +269,8 @@ RAIL_COST = 1
 RESTAURANT_COST = 8
 STATION_COST = 6
 REFILL_COST = 2
-FARM_COST = 4
-ARCADE_COST = 10
+FARM_COST = 12
+ARCADE_COST = 20
 MAP_EXPAND_COST = 100
 MAP_EXPAND_COST_1 = 400
 expanded = 0
@@ -322,7 +322,7 @@ export TIC = ->
 		exit_menu_holding_4 = false
 
 get_money_need = (wave) ->
-	return (wave - 1) * 8 + (wave - 1) * 4 + 8
+	return math.floor((wave - 1) * 8 + (wave - 1)*(wave - 1)*1.5 + 8)
 
 map_expand = ->
 	if expanded == 0
@@ -569,7 +569,7 @@ kb_controller = ->
 
 	x = WINDOW_W - 4
 	y = WINDOW_H - 4 - 8
-	help_text_draw_at(vecnew(x, y), 'Keyboard Z or controller A to press button')
+	help_text_draw_at(vecnew(x, y), 'Keyboard Z or controller A to select')
 
 title_draw = ->
 	if menu_opening != nil
@@ -907,9 +907,9 @@ game_controls_draw = ->
 
 game_ui_draw = ->
 	if show_goal_text > 0 and dpad_mode == DPAD_CURSOR
-		print('^', 4, 28, 12, false, 1, true)
-		print('Get enough money', 4, 36, 12, false, 1, true)
-		print('Before time run out', 4, 44, 12, false, 1, true)
+		print('^', 4, 36, 12, false, 1, true)
+		print('Get enough money', 4, 44, 12, false, 1, true)
+		print('Before time run out', 4, 52, 12, false, 1, true)
 
 	if dpad_mode == DPAD_CURSOR
 		spr(65, STATS_POS.x + 2, STATS_POS.y + 2, 0, 1, 0, 0, 1, 1)
@@ -925,10 +925,11 @@ draw_goals = (pos) ->
 	if dpad_mode != DPAD_CURSOR
 		return
 
-	print('goal: '..money_fullfilled..'/'..get_money_need(wave), pos.x, pos.y, 12, false, 1, true)
-	rect(pos.x, pos.y + 10, 30, 2, 14)
+	print('wave '..wave, pos.x, pos.y, 12, false, 1, true)
+	print('goal: '..money_fullfilled..'/'..get_money_need(wave), pos.x, pos.y + 8, 12, false, 1, true)
+	rect(pos.x, pos.y + 18, 30, 2, 14)
 	bar_w = 30 * (time_remain/TIME_REMAIN_MAX)
-	rect(pos.x, pos.y + 10, bar_w, 2, 5)
+	rect(pos.x, pos.y + 18, bar_w, 2, 5)
 
 camera_arrows_draw = ->
 	if dpad_mode != DPAD_CAMERA
@@ -1892,7 +1893,7 @@ refill_draw = (refill) ->
 	draw_pos = get_draw_pos(refill.pos)
 	draw(13, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, refill.pos, 0)
 
-FARM_CREATE_REFILL_COOLDOWN = 16 * 60
+FARM_CREATE_REFILL_COOLDOWN = 32 * 60
 farm_new = (pos) ->
 	if money_count < FARM_COST and farm_inventory == 0
 		return
@@ -1998,6 +1999,9 @@ arcade_arcade = (arcade) ->
 			continue
 
 		if v.arcaded
+			continue
+		
+		if not v.served
 			continue
 
 		v.arcaded = true
