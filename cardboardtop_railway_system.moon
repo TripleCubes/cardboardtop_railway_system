@@ -3,6 +3,8 @@
 -- license: MIT License
 -- script:  moon
 
+export get_money_need
+
 export get_camera_limit
 
 export btn_str
@@ -46,6 +48,7 @@ export dpad_cursor_update
 
 export game_controls_draw
 export game_ui_draw
+export draw_goals
 export camera_arrows_draw
 export bottom_left_card_draw
 export help_text_draw
@@ -205,6 +208,7 @@ AT_GAME = 0
 AT_START = 1
 AT_KB_CONTROLLER = 2
 
+lose = false
 at = AT_KB_CONTROLLER
 t = 0
 map_sz = { x: 0, y: 0 }
@@ -219,6 +223,11 @@ cursor_move_hold_3 = 0
 exit_menu_holding_5 = false
 exit_menu_holding_4 = false
 money_count = 6
+time_remain = 0
+TIME_REMAIN_MAX = 60*60*1.5
+money_fullfilled = 0
+wave = 0
+show_goal_text = 0
 CURSOR_MOVE_HOLD_TIME = 30
 
 DPAD_CAMERA = 0
@@ -307,6 +316,9 @@ export TIC = ->
 	if not btn(4)
 		exit_menu_holding_4 = false
 
+get_money_need = (wave) ->
+	return (wave - 1) * 8 + (wave - 1) * 4 + 8
+
 get_camera_limit = ->
 	pos = { x: (-WINDOW_W+map_sz.x*8)/2 + 8, y: (-WINDOW_H+map_sz.y*8)/2 + 8 }
 	return vecsub(pos, CAMERA_RANGE), vecadd(pos, CAMERA_RANGE)
@@ -358,6 +370,12 @@ game_init = ->
 	farm_inventory = 0
 	arcade_inventory = 0
 
+	time_remain = TIME_REMAIN_MAX
+	money_fullfilled = 0
+	wave = 1
+
+	show_goal_text = 12 * 60
+
 	create_menu_build()
 	create_menu_game()
 
@@ -406,6 +424,17 @@ kb_controller_init = ->
 	btn_connect(kb_controller_btn_controller, kb_controller_btn_confirm, DOWN)
 
 game = ->
+	show_goal_text -= 1
+	time_remain -= 1
+	if time_remain <= 0
+		time_remain = TIME_REMAIN_MAX
+		if money_fullfilled < get_money_need(wave)
+			lose = true
+			close_all_menus()
+		else
+			wave += 1
+			money_fullfilled = 0
+
 	game_controls_update()
 	ui_list_update()
 	entity_list_update()
@@ -644,6 +673,13 @@ get_building_btn_from_xy = (grid_w, grid_h, x, y) ->
 	return btn
 
 game_controls_update = ->
+	if lose
+		if btnp(4)
+			game_init()
+			lose = false
+			exit_menu_holding_4 = true
+		return
+
 	dpad_mode_controls()
 	menu_controls()
 	cursor_controls()
@@ -797,16 +833,35 @@ dpad_cursor_update = ->
 	cursor.pos = vecadd(cursor.pos, move)
 		
 game_controls_draw = ->
+	if lose
+		pos = vecnew(90, 60)
+		print('GAME LOSE', pos.x, pos.y, 12, false, 1, true)
+		print('Press '..btn_str(4)..' to restart', pos.x, pos.y + 8, 12, false, 1, true)
+		return
+
 	cursor_draw()
 
 game_ui_draw = ->
+	if show_goal_text > 0
+		print('^', 4, 28, 12, false, 1, true)
+		print('Get enough money', 4, 36, 12, false, 1, true)
+		print('Before time run out', 4, 44, 12, false, 1, true)
+
 	if dpad_mode == DPAD_CURSOR
 		spr(65, STATS_POS.x + 2, STATS_POS.y + 2, 0, 1, 0, 0, 1, 1)
 		print(money_count, STATS_POS.x + 8, STATS_POS.y + 1, 12, false, 1, true)
 
+	draw_goals(vecnew(STATS_POS.x + 2, STATS_POS.y + 10))
+
 	bottom_left_card_draw()
 	help_text_draw()
 	camera_arrows_draw()
+
+draw_goals = (pos) ->
+	print('goal: '..money_fullfilled..'/'..get_money_need(wave), pos.x, pos.y, 12, false, 1, true)
+	rect(pos.x, pos.y + 10, 30, 2, 14)
+	bar_w = 30 * (time_remain/TIME_REMAIN_MAX)
+	rect(pos.x, pos.y + 10, bar_w, 2, 5)
 
 camera_arrows_draw = ->
 	if dpad_mode != DPAD_CAMERA
