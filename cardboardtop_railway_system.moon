@@ -3,15 +3,11 @@
 -- license: MIT License
 -- script:  moon
 
--- The Moonscript compiled to Lua code pass the 200 local variable limit of Lua, so I end up
--- needing to write the rest of the code in the generated lua file, where I can manually delete
--- the 823871897213 local keywords Moonscript generated
-
-local title_draw
-local create_start_screen_menus
-
 local create_nav
 local connect_to_nav
+
+local bkg_draw
+local box_draw
 
 local create_menu_build
 local create_building_btn
@@ -60,10 +56,14 @@ local btn_connect
 --local progress_bar_update
 --local progress_bar_draw
 
+local entity_new
+local entity_list_update
+local entity_list_draw
+
 local can_place
 
 local rail_new
---local rail_rm
+local rail_rm
 local rail_rm_xy
 local set_rail_type_tag
 local update_surround_rail_type_tag
@@ -72,7 +72,7 @@ local rail_update
 local rail_draw
 
 local station_new
---local station_rm
+local station_rm
 local station_rm_xy
 local station_update
 local station_create_train
@@ -107,6 +107,35 @@ local farm_update
 local farm_create_refill
 local farm_draw
 
+local draw
+local draw_rect
+local draw_text
+local draw_list_draw
+
+local vecequals
+local vecnew
+local veccopy
+local vecadd
+local vecsub
+local vecmul
+local vecdiv
+local vecdivdiv
+local vecmod
+local veclength
+local veclengthsqr
+local vecparam
+
+local rect_collide
+local in_rect
+
+local rndi
+local rndf
+local dice
+local list_shuffle
+
+local is_in_list
+local find_in_list
+
 WINDOW_W = 240
 WINDOW_H = 136
 
@@ -137,13 +166,6 @@ RAIL_3_LEFT = 8
 RAIL_3_RIGHT = 9
 RAIL_4 = 10
 
-AT_START = 0
-AT_GAME = 1
-using_kb = true
-btn_keyboard = {}
-btn_controller = {}
-
-at = AT_START
 t = 0
 map_sz = { x: 0, y: 0 }
 entity_list = {}
@@ -170,7 +192,6 @@ UI_PROGRESS_BAR
 ui_list = {}
 
 menu_build = {}
-menu_kb_controller = {}
 menu_opening = nil
 
 btn_selected = nil
@@ -208,201 +229,9 @@ CARD_BTN_SZ = { x: 16, y: 16 }
 
 STATS_POS = { x: 2, y: 2 }
 
-DRAW_SPR = 0
-DRAW_RECT = 1
-DRAW_TEXT = 2
-
-entity_new = (type_tag, pos, sz, update_func, draw_func) ->
-	e = {
-		type_tag: type_tag,
-		pos: veccopy(pos),
-		sz: veccopy(sz),
-		update: update_func,
-		draw: draw_func,
-	}
-	table.insert(entity_list, e)
-	return e
-
-entity_list_update = () ->
-	for i = #entity_list, 1, -1
-		v = entity_list[i]
-		v.update(i, v)
-
-entity_list_draw = () ->
-	for i, v in ipairs(entity_list)
-		v.draw(v)
-
-draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos, z_index) ->
-	d = {
-		type_tag: DRAW_SPR,
-		spr_id: spr_id,
-		x: x,
-		y: y,
-		color_key: color_key,
-		scale: scale,
-		flip: flip,
-		rotate: rotate,
-		w: w,
-		h: h,
-		center_pos: veccopy(center_pos)
-		z_index: z_index
-	}
-
-	table.insert(draw_list, d)
-
-draw_rect = (x, y, w, h, color, center_pos, z_index) ->
-	d = {
-		type_tag: DRAW_RECT,
-		x: x,
-		y: y,
-		w: w,
-		h: h,
-		color: color,
-		center_pos: veccopy(center_pos),
-		z_index: z_index,
-	}
-	table.insert(draw_list, d)
-
-draw_text = (text, x, y, color, fixed, scale, small_font, center_pos, z_index) ->
-	d = {
-		type_tag: DRAW_TEXT,
-		text: text,
-		x: x,
-		y: y,
-		color: color,
-		fixed: fixed,
-		scale: scale,
-		small_font: small_font,
-		center_pos: center_pos,
-		z_index: z_index,
-	}
-	table.insert(draw_list, d)
-
-draw_list_draw = ->
-	table.sort(draw_list, (a, b) ->
-		if a.z_index != b.z_index
-			return a.z_index < b.z_index
-
-		return a.center_pos.y < b.center_pos.y
-	)
-
-	for i, v in ipairs(draw_list)
-		if v.type_tag == DRAW_SPR
-			spr(v.spr_id, v.x, v.y, v.color_key, v.scale, v.flip, v.rotate, v.w, v.h)
-		if v.type_tag == DRAW_RECT
-			rect(v.x, v.y, v.w, v.h, v.color)
-		if v.type_tag == DRAW_TEXT
-			print(v.text, v.x, v.y, v.color, v.fixed, v.scale, v.small_font)
-
-	draw_list = {}
-
-vecequals = (veca, vecb) ->
-	return veca.x == vecb.x and veca.y == vecb.y
-
-vecnew = (x, y) ->
-	return { x: x, y: y }
-
-veccopy = (vec) ->
-	return { x: vec.x, y: vec.y }
-
-vecadd = (vec_a, vec_b) ->
-	return { x: vec_a.x + vec_b.x, y: vec_a.y + vec_b.y }
-
-vecsub = (vec_a, vec_b) ->
-	return { x: vec_a.x - vec_b.x, y: vec_a.y - vec_b.y }
-
-vecmul = (vec, n) ->
-	return { x: vec.x * n, y: vec.y * n }
-
-vecdiv = (vec, n) ->
-	return { x: vec.x / n, y: vec.y / n }
-
-vecdivdiv = (vec, n) ->
-	return { x: vec.x // n, y: vec.y // n }
-
-vecmod = (vec, n) ->
-	return { x: vec.x % n, y: vec.y % n }
-
-veclength = (vec) ->
-	return math.sqrt(vec.x*vec.x + vec.y*vec.y)
-
-veclengthsqr = (vec) ->
-	return vec.x*vec.x + vec.y*vec.y
-
-vecparam = (vec) ->
-	return vec.x, vec.y
-
-rect_collide = (pos_a, sz_a, pos_b, sz_b) ->
-	if pos_a.x + sz_a.x <= pos_b.x
-		return false
-	if pos_a.y + sz_a.y <= pos_b.y
-		return false
-	if pos_a.x >= pos_b.x + sz_b.x
-		return false
-	if pos_a.y >= pos_b.y + sz_b.y
-		return false
-	return true
-
-in_rect = (pos, rect_pos, rect_sz) ->
-	if pos.x < rect_pos.x
-		return false
-	if pos.y < rect_pos.y
-		return false
-	if pos.x >= rect_pos.x + rect_sz.x
-		return false
-	if pos.y >= rect_pos.y + rect_sz.y
-		return false
-	return true
-
-rndf = (a, b) ->
-	return math.random() * (b - a) + a
-
-rndi = (a, b) ->
-	return math.random(a, b)
-
-dice = (a, b) ->
-	rnd = rndi(1, b)
-	return rnd >= 1 and rnd <= a
-
-list_shuffle = (list) ->
-	result = {}
-	list_sz = #list
-	for i = 1, list_sz
-		rnd = rndi(1, list_sz - i + 1)
-		table.insert(result, list[rnd])
-		table.remove(list, rnd)
-	return result
-
-is_in_list = (list, item) ->
-	for i, v in ipairs(list)
-		if v == item
-			return true
-	return false
-
-find_in_list = (list, item) ->
-	for i, v in ipairs(list)
-		if v == item
-			return i
-	return -1
-
-bkg_draw = ->
-	box_draw()
-
-box_draw = ->
-	draw_pos = get_draw_pos(vecnew(8, 8))
-	rect(draw_pos.x, draw_pos.y, map_sz.x * 8, map_sz.y * 8, 4)
-
-	tape_w = 16
-	tape_h = 16
-	rect(draw_pos.x + (map_sz.x*8 - tape_w)/2, draw_pos.y, tape_w, map_sz.y*8, 3)
-	rect(draw_pos.x, draw_pos.y + (map_sz.y*8 - tape_h)/2, map_sz.x*8, tape_h, 3)
-
-	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 2)
-
-game_init = ->
-	ui_list = {}
-	entity_list = {}
-
+export BOOT = ->
+	map_sz = vecnew(16, 10)
+	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
 	cursor.pos = vecnew(8, 8)
 
 	create_menu_build()
@@ -412,18 +241,7 @@ game_init = ->
 		for x = 1, map_sz.x
 			table.insert(rail_grid[y], -1)
 
-start_init = ->
-	ui_list = {}
-
-	create_start_screen_menus()
-
-export BOOT = ->
-	map_sz = vecnew(16, 10)
-	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
-	
-	start_init()
-
-game = ->
+export TIC = ->
 	game_controls_update()
 	ui_list_update()
 	entity_list_update()
@@ -442,55 +260,8 @@ game = ->
 		exit_menu_holding_4 = false
 
 	btn_switched = false
-
-start = ->
-	ui_list_update()
-
-	cls(13)
-	box_draw()
-	title_draw()
-	ui_list_draw()
-
-	btn_switched = false
-
-export TIC = ->
-	if at == AT_GAME
-		game()
-	elseif at == AT_START
-		start()
-
 	t += 1
-
-title_draw = ->
-	print('Cardboardtop Railway', 4, 4, 12, false, 2, true)
-	print('System', 4, 17, 12, false, 2, true)
-
-create_start_screen_menus = ->
-	btn_play = btn_new(vecnew(4, 32), vecnew(60, 8), -1, vecnew(0, 0), 'Play', () ->
-	)
-
-	btn_kb_controller = btn_new(vecnew(4, 44), vecnew(60, 8), -1, vecnew(0, 0), 'Kb/Controller', () ->
-		open_menu(menu_kb_controller)
-	)
-
-	btn_connect(btn_play, btn_kb_controller, DOWN)
-
-	select_btn(btn_play)
-
-
-	menu_kb_controller = menu_new(nil, vecnew(0, 0))
-	btn_keyboard = btn_new(vecnew(4, 10), vecnew(48, 8), -1, vecnew(0, 0), 'Keyboard', () ->
-		btn_keyboard.highlighted = true
-		btn_controller.highlighted = false
-		using_kb = true
-	)
-	btn_controller = btn_new(vecnew(4, 22), vecnew(48, 8), -1, vecnew(0, 0), 'Controller', () ->
-		btn_keyboard.highlighted = false
-		btn_controller.highlighted = true
-		using_kb = false
-	)
-	menu_add_ui(menu_kb_controller, btn_keyboard)
-	menu_add_ui(menu_kb_controller, btn_controller)
+	--trace(#entity_list)
 
 create_nav = (menu) ->
 	y = TAB_BTN_MARGIN_TOP
@@ -521,6 +292,20 @@ connect_to_nav = (nav_btn_list, btn) ->
 	for i, v in ipairs(nav_btn_list)
 		v.right = btn
 	btn.left = nav_btn_list[1]
+
+bkg_draw = ->
+	box_draw()
+
+box_draw = ->
+	draw_pos = get_draw_pos(vecnew(8, 8))
+	rect(draw_pos.x, draw_pos.y, map_sz.x * 8, map_sz.y * 8, 4)
+
+	tape_w = 16
+	tape_h = 16
+	rect(draw_pos.x + (map_sz.x*8 - tape_w)/2, draw_pos.y, tape_w, map_sz.y*8, 3)
+	rect(draw_pos.x, draw_pos.y + (map_sz.y*8 - tape_h)/2, map_sz.x*8, tape_h, 3)
+
+	rect(draw_pos.x, draw_pos.y + map_sz.y * 8, map_sz.x * 8, 20 * 8, 2)
 
 create_menu_build = ->
 	menu_build = menu_new(nil, vecnew(0, WINDOW_H - 60))
@@ -999,7 +784,7 @@ btn_draw = (btn) ->
 		txt_pos = vecadd(draw_pos, vecnew(8, 1))
 
 	bkg_color = 12
-	shading_color = 14
+	shading_color = 13
 	if btn.highlight
 		bkg_color = 4
 		shading_color = 3
@@ -1676,6 +1461,182 @@ farm_draw = (farm) ->
 	draw_rect(draw_pos.x, draw_pos.y - 4, bar_w, 2, 14, vecnew(0, 0), 11)
 	bar_filled_w = (1 - (farm.until_refill / FARM_CREATE_REFILL_COOLDOWN)) * bar_w
 	draw_rect(draw_pos.x, draw_pos.y - 4, bar_filled_w, 2, 6, vecnew(0, 0), 12)
+
+entity_new = (type_tag, pos, sz, update_func, draw_func) ->
+	e = {
+		type_tag: type_tag,
+		pos: veccopy(pos),
+		sz: veccopy(sz),
+		update: update_func,
+		draw: draw_func,
+	}
+	table.insert(entity_list, e)
+	return e
+
+entity_list_update = () ->
+	for i = #entity_list, 1, -1
+		v = entity_list[i]
+		v.update(i, v)
+
+entity_list_draw = () ->
+	for i, v in ipairs(entity_list)
+		v.draw(v)
+
+DRAW_SPR = 0
+DRAW_RECT = 1
+DRAW_TEXT = 2
+draw = (spr_id, x, y, color_key, scale, flip, rotate, w, h, center_pos, z_index) ->
+	d = {
+		type_tag: DRAW_SPR,
+		spr_id: spr_id,
+		x: x,
+		y: y,
+		color_key: color_key,
+		scale: scale,
+		flip: flip,
+		rotate: rotate,
+		w: w,
+		h: h,
+		center_pos: veccopy(center_pos)
+		z_index: z_index
+	}
+
+	table.insert(draw_list, d)
+
+draw_rect = (x, y, w, h, color, center_pos, z_index) ->
+	d = {
+		type_tag: DRAW_RECT,
+		x: x,
+		y: y,
+		w: w,
+		h: h,
+		color: color,
+		center_pos: veccopy(center_pos),
+		z_index: z_index,
+	}
+	table.insert(draw_list, d)
+
+draw_text = (text, x, y, color, fixed, scale, small_font, center_pos, z_index) ->
+	d = {
+		type_tag: DRAW_TEXT,
+		text: text,
+		x: x,
+		y: y,
+		color: color,
+		fixed: fixed,
+		scale: scale,
+		small_font: small_font,
+		center_pos: center_pos,
+		z_index: z_index,
+	}
+	table.insert(draw_list, d)
+
+draw_list_draw = ->
+	table.sort(draw_list, (a, b) ->
+		if a.z_index != b.z_index
+			return a.z_index < b.z_index
+
+		return a.center_pos.y < b.center_pos.y
+	)
+
+	for i, v in ipairs(draw_list)
+		if v.type_tag == DRAW_SPR
+			spr(v.spr_id, v.x, v.y, v.color_key, v.scale, v.flip, v.rotate, v.w, v.h)
+		if v.type_tag == DRAW_RECT
+			rect(v.x, v.y, v.w, v.h, v.color)
+		if v.type_tag == DRAW_TEXT
+			print(v.text, v.x, v.y, v.color, v.fixed, v.scale, v.small_font)
+
+	draw_list = {}
+
+vecequals = (veca, vecb) ->
+	return veca.x == vecb.x and veca.y == vecb.y
+
+vecnew = (x, y) ->
+	return { x: x, y: y }
+
+veccopy = (vec) ->
+	return { x: vec.x, y: vec.y }
+
+vecadd = (vec_a, vec_b) ->
+	return { x: vec_a.x + vec_b.x, y: vec_a.y + vec_b.y }
+
+vecsub = (vec_a, vec_b) ->
+	return { x: vec_a.x - vec_b.x, y: vec_a.y - vec_b.y }
+
+vecmul = (vec, n) ->
+	return { x: vec.x * n, y: vec.y * n }
+
+vecdiv = (vec, n) ->
+	return { x: vec.x / n, y: vec.y / n }
+
+vecdivdiv = (vec, n) ->
+	return { x: vec.x // n, y: vec.y // n }
+
+vecmod = (vec, n) ->
+	return { x: vec.x % n, y: vec.y % n }
+
+veclength = (vec) ->
+	return math.sqrt(vec.x*vec.x + vec.y*vec.y)
+
+veclengthsqr = (vec) ->
+	return vec.x*vec.x + vec.y*vec.y
+
+vecparam = (vec) ->
+	return vec.x, vec.y
+
+rect_collide = (pos_a, sz_a, pos_b, sz_b) ->
+	if pos_a.x + sz_a.x <= pos_b.x
+		return false
+	if pos_a.y + sz_a.y <= pos_b.y
+		return false
+	if pos_a.x >= pos_b.x + sz_b.x
+		return false
+	if pos_a.y >= pos_b.y + sz_b.y
+		return false
+	return true
+
+in_rect = (pos, rect_pos, rect_sz) ->
+	if pos.x < rect_pos.x
+		return false
+	if pos.y < rect_pos.y
+		return false
+	if pos.x >= rect_pos.x + rect_sz.x
+		return false
+	if pos.y >= rect_pos.y + rect_sz.y
+		return false
+	return true
+
+rndf = (a, b) ->
+	return math.random() * (b - a) + a
+
+rndi = (a, b) ->
+	return math.random(a, b)
+
+dice = (a, b) ->
+	rnd = rndi(1, b)
+	return rnd >= 1 and rnd <= a
+
+list_shuffle = (list) ->
+	result = {}
+	list_sz = #list
+	for i = 1, list_sz
+		rnd = rndi(1, list_sz - i + 1)
+		table.insert(result, list[rnd])
+		table.remove(list, rnd)
+	return result
+
+is_in_list = (list, item) ->
+	for i, v in ipairs(list)
+		if v == item
+			return true
+	return false
+
+find_in_list = (list, item) ->
+	for i, v in ipairs(list)
+		if v == item
+			return i
+	return -1
 
 -- <TILES>
 -- 001:ddddddddeeeeeeee0ff00ff00ee00ee00ee00ee0ddddddddeeeeeeee0ff00ff0
