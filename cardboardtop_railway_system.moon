@@ -3,6 +3,8 @@
 -- license: MIT License
 -- script:  moon
 
+export btn_str
+
 export game_init
 export start_init
 export kb_controller_init
@@ -43,6 +45,8 @@ export dpad_cursor_update
 export game_controls_draw
 export game_ui_draw
 export bottom_left_card_draw
+export help_text_draw
+export help_text_draw_at
 export cursor_draw
 export get_cursor_sz
 
@@ -279,6 +283,37 @@ export TIC = ->
 	if not btn(4)
 		exit_menu_holding_4 = false
 
+btn_str = (btn_number) ->
+	n = btn_number
+	if n == 0
+		return 'up'
+	if n == 1
+		return 'down'
+	if n == 2
+		return 'left'
+	if n == 3
+		return 'right'
+	if n == 4
+		if using_kb
+			return 'Z'
+		else
+			return 'A'
+	if n == 5
+		if using_kb
+			return 'X'
+		else
+			return 'B'
+	if n == 6
+		if using_kb
+			return 'A'
+		else
+			return 'X'
+	if n == 7
+		if using_kb
+			return 'S'
+		else
+			return 'Y'
+
 game_init = ->
 	close_all_menus()
 	entity_list = {}
@@ -362,6 +397,10 @@ start = ->
 	title_draw()
 	ui_list_draw()
 
+	x = WINDOW_W - 4
+	y = WINDOW_H - 4 - 8
+	help_text_draw_at(vecnew(x, y), btn_str(4)..': press button')
+
 create_start_screen_menu = ->
 	btn_play = btn_new(vecnew(4, 34), vecnew(60, 8), -1, vecnew(0, 0), 'Play', () ->
 		game_init()
@@ -420,6 +459,10 @@ kb_controller = ->
 	ui_list_draw()
 
 	print('Are you using keyboard or controller?', 4, 4, 12, false, 1, true)
+
+	x = WINDOW_W - 4
+	y = WINDOW_H - 4 - 8
+	help_text_draw_at(vecnew(x, y), 'Keyboard Z or controller A to press button')
 
 title_draw = ->
 	if menu_opening != nil
@@ -713,6 +756,32 @@ game_ui_draw = ->
 	print(money_count, STATS_POS.x + 8, STATS_POS.y + 1, 12, false, 1, true)
 
 	bottom_left_card_draw()
+	help_text_draw()
+
+help_text_draw = () ->
+	x = WINDOW_W - 4
+	y = 4
+
+	if menu_opening == nil
+		if dpad_mode == DPAD_CURSOR
+			help_text_draw_at(vecnew(x, y), btn_str(7) .. ': menu')
+			y += 8
+			help_text_draw_at(vecnew(x, y), btn_str(4)..': place')
+			y += 8
+			help_text_draw_at(vecnew(x, y), btn_str(5)..': remove')
+			y += 8
+			help_text_draw_at(vecnew(x, y), btn_str(6)..': camera mode')
+		else
+			help_text_draw_at(vecnew(x, y), btn_str(6)..': cursor mode')
+
+	else
+		help_text_draw_at(vecnew(x, y), btn_str(4)..': press button')
+		y += 8
+		help_text_draw_at(vecnew(x, y), btn_str(7)..'/'.. btn_str(5) ..': exit_menu')
+
+help_text_draw_at = (pos, txt) ->
+	draw_w = print(txt, 0, -100, 12, false, 1, true)
+	print(txt, pos.x - draw_w, pos.y, 12, false, 1, true)
 
 bottom_left_card_draw = ->
 	if building_btn_selected == nil
