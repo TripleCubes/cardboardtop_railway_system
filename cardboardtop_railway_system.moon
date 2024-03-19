@@ -3,138 +3,151 @@
 -- license: MIT License
 -- script:  moon
 
-local create_nav
-local connect_to_nav
+export game_init
+export start_init
+export kb_controller_init
 
-local bkg_draw
-local box_draw
+export create_start_screen_menu
+export create_kb_controller_menu
 
-local create_menu_build
-local create_building_btn
-local draw_desc
-local draw_building_costs
-local draw_building_cost_under_btn
-local building_btn_connect
-local building_btn_connect_around
-local get_building_btn_from_xy
+export game
+export start
+export kb_controller
 
-local game_controls_update
-local dpad_mode_controls
-local menu_controls
-local cursor_controls
-local building_rm
-local dpad_camera_update
-local dpad_cursor_update
+export title_draw
 
-local game_controls_draw
-local game_ui_draw
-local bottom_left_card_draw
-local cursor_draw
-local get_cursor_sz
+export create_nav
+export connect_to_nav
 
-local get_draw_pos
+export bkg_draw
+export box_draw
 
-local ui_new
-local ui_list_update
-local ui_list_draw
+export create_menu_build
+export create_building_btn
+export draw_desc
+export draw_building_costs
+export draw_building_cost_under_btn
+export building_btn_connect
+export building_btn_connect_around
+export get_building_btn_from_xy
 
-local open_menu
-local close_all_menus
-local menu_new
-local menu_update
-local menu_draw
-local menu_add_ui
+export game_controls_update
+export dpad_mode_controls
+export menu_controls
+export cursor_controls
+export building_rm
+export dpad_camera_update
+export dpad_cursor_update
 
-local select_btn
-local select_building_btn
-local btn_new
-local btn_update
-local btn_draw
-local btn_connect
+export game_controls_draw
+export game_ui_draw
+export bottom_left_card_draw
+export cursor_draw
+export get_cursor_sz
+
+export get_draw_pos
+
+export ui_new
+export ui_list_update
+export ui_list_draw
+
+export open_menu
+export close_all_menus
+export menu_new
+export menu_update
+export menu_draw
+export menu_add_ui
+
+export select_btn
+export select_building_btn
+export btn_new
+export btn_update
+export btn_draw
+export btn_connect
 
 --local progress_bar_new
 --local progress_bar_update
 --local progress_bar_draw
 
-local entity_new
-local entity_list_update
-local entity_list_draw
+export entity_new
+export entity_list_update
+export entity_list_draw
 
-local can_place
+export can_place
 
-local rail_new
-local rail_rm
-local rail_rm_xy
-local set_rail_type_tag
-local update_surround_rail_type_tag
-local have_rail
-local rail_update
-local rail_draw
+export rail_new
+export rail_rm
+export rail_rm_xy
+export set_rail_type_tag
+export update_surround_rail_type_tag
+export have_rail
+export rail_update
+export rail_draw
 
-local station_new
-local station_rm
-local station_rm_xy
-local station_update
-local station_create_train
-local station_draw
-local station_check_path_all
-local station_check_path
+export station_new
+export station_rm
+export station_rm_xy
+export station_update
+export station_create_train
+export station_draw
+export station_check_path_all
+export station_check_path
 
-local train_new
-local train_update
-local train_move
-local train_get_path
-local recursion_train_get_path
-local train_check_rm
-local train_draw
-local train_check_path_all
+export train_new
+export train_update
+export train_move
+export train_get_path
+export recursion_train_get_path
+export train_check_rm
+export train_draw
+export train_check_path_all
 
-local restaurant_new
-local restaurant_rm_xy
-local restaurant_update
-local restaurant_serve
-local restaurant_refill
-local restaurant_draw
+export restaurant_new
+export restaurant_rm_xy
+export restaurant_update
+export restaurant_serve
+export restaurant_refill
+export restaurant_draw
 
-local refill_new
-local refill_rm_xy
-local refill_update
-local refill_draw
+export refill_new
+export refill_rm_xy
+export refill_update
+export refill_draw
 
-local farm_new
-local farm_rm_xy
-local farm_update
-local farm_create_refill
-local farm_draw
+export farm_new
+export farm_rm_xy
+export farm_update
+export farm_create_refill
+export farm_draw
 
-local draw
-local draw_rect
-local draw_text
-local draw_list_draw
+export draw
+export draw_rect
+export draw_text
+export draw_list_draw
 
-local vecequals
-local vecnew
-local veccopy
-local vecadd
-local vecsub
-local vecmul
-local vecdiv
-local vecdivdiv
-local vecmod
-local veclength
-local veclengthsqr
-local vecparam
+export vecequals
+export vecnew
+export veccopy
+export vecadd
+export vecsub
+export vecmul
+export vecdiv
+export vecdivdiv
+export vecmod
+export veclength
+export veclengthsqr
+export vecparam
 
-local rect_collide
-local in_rect
+export rect_collide
+export in_rect
 
-local rndi
-local rndf
-local dice
-local list_shuffle
+export rndi
+export rndf
+export dice
+export list_shuffle
 
-local is_in_list
-local find_in_list
+export is_in_list
+export find_in_list
 
 WINDOW_W = 240
 WINDOW_H = 136
@@ -166,6 +179,11 @@ RAIL_3_LEFT = 8
 RAIL_3_RIGHT = 9
 RAIL_4 = 10
 
+AT_GAME = 0
+AT_START = 1
+AT_KB_CONTROLLER = 2
+
+at = AT_START
 t = 0
 map_sz = { x: 0, y: 0 }
 entity_list = {}
@@ -185,6 +203,11 @@ DPAD_CAMERA = 0
 DPAD_CURSOR = 1
 dpad_mode = DPAD_CURSOR
 
+btn_kb = {}
+btn_controller = {}
+btn_play = {}
+using_kb = true
+
 UI_MENU = 0
 UI_BTN = 1
 UI_PROGRESS_BAR
@@ -192,6 +215,7 @@ UI_PROGRESS_BAR
 ui_list = {}
 
 menu_build = {}
+menu_kb_controller = {}
 menu_opening = nil
 
 btn_selected = nil
@@ -232,6 +256,24 @@ STATS_POS = { x: 2, y: 2 }
 export BOOT = ->
 	map_sz = vecnew(16, 10)
 	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
+
+	start_init()
+
+export TIC = ->
+	if at == AT_GAME
+		game()
+	elseif at == AT_START
+		start()
+	elseif at == AT_KB_CONTROLLER
+		kb_controller()
+
+	btn_switched = false
+	t += 1
+
+game_init = ->
+	entity_list = {}
+	ui_list = {}
+
 	cursor.pos = vecnew(8, 8)
 
 	create_menu_build()
@@ -241,7 +283,15 @@ export BOOT = ->
 		for x = 1, map_sz.x
 			table.insert(rail_grid[y], -1)
 
-export TIC = ->
+start_init = ->
+	entity_list = {}
+	ui_list = {}
+
+	create_start_screen_menu()
+
+kb_controller_init = ->
+
+game = ->
 	game_controls_update()
 	ui_list_update()
 	entity_list_update()
@@ -259,9 +309,69 @@ export TIC = ->
 	if not btn(4)
 		exit_menu_holding_4 = false
 
-	btn_switched = false
-	t += 1
-	--trace(#entity_list)
+start = ->
+	ui_list_update()
+
+	cls(13)
+	bkg_draw()
+	title_draw()
+	ui_list_draw()
+
+create_start_screen_menu = ->
+	btn_play = btn_new(vecnew(4, 34), vecnew(60, 8), -1, vecnew(0, 0), 'Play', () ->
+		game_init()
+		at = AT_GAME
+		exit_menu_holding_4 = true
+	)
+
+	btn_kb_controller = btn_new(vecnew(4, 46), vecnew(60, 8), -1, vecnew(0, 0), 'Kb/Controller', () ->
+		open_menu(menu_kb_controller)
+	)
+
+	select_btn(btn_play)
+	btn_connect(btn_play, btn_kb_controller, DOWN)
+
+	create_kb_controller_menu()
+
+create_kb_controller_menu = ->
+	menu_kb_controller = menu_new(nil, vecnew(0, 0))
+
+	btn_back = btn_new(vecnew(4, 14), vecnew(60, 8), -1, vecnew(0, 0), 'Back', () ->
+		close_all_menus()
+		select_btn(btn_play)
+	)
+
+	btn_kb = btn_new(vecnew(4, 30), vecnew(60, 8), -1, vecnew(0, 0), 'Keyboard', () ->
+		using_kb = true
+		btn_kb.highlight = true
+		btn_controller.highlight = false
+	)
+
+	btn_controller = btn_new(vecnew(4, 42), vecnew(60, 8), -1, vecnew(0, 0), 'Controller', () ->
+		using_kb = false
+		btn_kb.highlight = false
+		btn_controller.highlight = true
+	)
+
+	menu_add_ui(menu_kb_controller, btn_back)
+	menu_add_ui(menu_kb_controller, btn_kb)
+	menu_add_ui(menu_kb_controller, btn_controller)
+	menu_kb_controller.no_menu_btn = btn_play
+	if using_kb
+		btn_kb.highlight = true
+	else
+		btn_controller.highlight = true
+
+	btn_connect(btn_back, btn_kb, DOWN)
+	btn_connect(btn_kb, btn_controller, DOWN)
+
+kb_controller = ->
+
+title_draw = ->
+	if menu_opening != nil
+		return
+	print('Cardboardtop Railway', 4, 4, 12, false, 2, true)
+	print('System', 4, 18, 12, false, 2, true)
 
 create_nav = (menu) ->
 	y = TAB_BTN_MARGIN_TOP
@@ -626,6 +736,7 @@ menu_new = (up_menu, pos) ->
 	menu.sub_ui_list = {}
 	menu.pos = veccopy(pos)
 	menu.first_btn = nil
+	menu.no_menu_btn = nil
 	return menu
 
 menu_update = (i, menu) ->
@@ -636,6 +747,8 @@ menu_update = (i, menu) ->
 		if menu.up_menu == nil
 			exit_menu_holding_5 = true
 			close_all_menus()
+			if menu.no_menu_btn != nil
+				select_btn(menu.no_menu_btn)
 		else
 			open_menu(menu.up_menu)
 
@@ -647,6 +760,9 @@ menu_draw = (menu) ->
 		rect(menu.pos.x, menu.pos.y, WINDOW_W, WINDOW_H, 14)
 		draw_desc(vecnew(menu.pos.x + 128, menu.pos.y + 4))
 		draw_building_costs()
+
+	if menu == menu_kb_controller
+		print('Are you using keyboard or controller?', 4, 4, 12, false, 1, true)
 
 draw_desc = (pos) ->
 	if btn_selected.building_type_tag == nil
@@ -784,7 +900,7 @@ btn_draw = (btn) ->
 		txt_pos = vecadd(draw_pos, vecnew(8, 1))
 
 	bkg_color = 12
-	shading_color = 13
+	shading_color = 14
 	if btn.highlight
 		bkg_color = 4
 		shading_color = 3
