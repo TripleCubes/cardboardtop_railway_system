@@ -183,7 +183,7 @@ AT_GAME = 0
 AT_START = 1
 AT_KB_CONTROLLER = 2
 
-at = AT_START
+at = AT_KB_CONTROLLER
 t = 0
 map_sz = { x: 0, y: 0 }
 entity_list = {}
@@ -206,6 +206,8 @@ dpad_mode = DPAD_CURSOR
 btn_kb = {}
 btn_controller = {}
 btn_play = {}
+kb_controller_btn_kb = {}
+kb_controller_btn_controller = {}
 using_kb = true
 
 UI_MENU = 0
@@ -257,7 +259,7 @@ export BOOT = ->
 	map_sz = vecnew(16, 10)
 	camera.pos = vecnew((-WINDOW_W+map_sz.x*8)/2 + 8, (-WINDOW_H+map_sz.y*8)/2 + 8)
 
-	start_init()
+	kb_controller_init()
 
 export TIC = ->
 	if at == AT_GAME
@@ -270,9 +272,15 @@ export TIC = ->
 	btn_switched = false
 	t += 1
 
+	if not btn(5)
+		exit_menu_holding_5 = false
+	if not btn(4)
+		exit_menu_holding_4 = false
+
 game_init = ->
 	entity_list = {}
 	ui_list = {}
+	rail_grid = {}
 
 	cursor.pos = vecnew(8, 8)
 
@@ -286,10 +294,39 @@ game_init = ->
 start_init = ->
 	entity_list = {}
 	ui_list = {}
+	rail_grid = {}
 
 	create_start_screen_menu()
 
 kb_controller_init = ->
+	entity_list = {}
+	ui_list = {}
+	rail_grid = {}
+
+	kb_controller_btn_kb = btn_new(vecnew(4, 14), vecnew(60, 8), -1, vecnew(0, 0), 'Keyboard', () ->
+		using_kb = true
+		kb_controller_btn_kb.highlight = true
+		kb_controller_btn_controller.highlight = false
+	)
+
+	kb_controller_btn_controller = btn_new(vecnew(4, 26), vecnew(60, 8), -1, vecnew(0, 0), 'Controller', () ->
+		using_kb = false
+		kb_controller_btn_kb.highlight = false
+		kb_controller_btn_controller.highlight = true
+	)
+
+	kb_controller_btn_confirm = btn_new(vecnew(4, 42), vecnew(60, 8), -1, vecnew(0, 0), 'Confirm', () ->
+		start_init()
+		at = AT_START
+		exit_menu_holding_4 = true
+	)
+
+	kb_controller_btn_kb.highlight = true
+
+	select_btn(kb_controller_btn_kb)
+
+	btn_connect(kb_controller_btn_kb, kb_controller_btn_controller, DOWN)
+	btn_connect(kb_controller_btn_controller, kb_controller_btn_confirm, DOWN)
 
 game = ->
 	game_controls_update()
@@ -302,12 +339,7 @@ game = ->
 	draw_list_draw()
 	game_controls_draw()
 	game_ui_draw()
-	ui_list_draw()
-
-	if not btn(5)
-		exit_menu_holding_5 = false
-	if not btn(4)
-		exit_menu_holding_4 = false
+	ui_list_draw()	
 
 start = ->
 	ui_list_update()
@@ -336,36 +368,45 @@ create_start_screen_menu = ->
 create_kb_controller_menu = ->
 	menu_kb_controller = menu_new(nil, vecnew(0, 0))
 
-	btn_back = btn_new(vecnew(4, 14), vecnew(60, 8), -1, vecnew(0, 0), 'Back', () ->
-		close_all_menus()
-		select_btn(btn_play)
-	)
-
-	btn_kb = btn_new(vecnew(4, 30), vecnew(60, 8), -1, vecnew(0, 0), 'Keyboard', () ->
+	btn_kb = btn_new(vecnew(4, 14), vecnew(60, 8), -1, vecnew(0, 0), 'Keyboard', () ->
 		using_kb = true
 		btn_kb.highlight = true
 		btn_controller.highlight = false
 	)
 
-	btn_controller = btn_new(vecnew(4, 42), vecnew(60, 8), -1, vecnew(0, 0), 'Controller', () ->
+	btn_controller = btn_new(vecnew(4, 26), vecnew(60, 8), -1, vecnew(0, 0), 'Controller', () ->
 		using_kb = false
 		btn_kb.highlight = false
 		btn_controller.highlight = true
 	)
 
-	menu_add_ui(menu_kb_controller, btn_back)
+
+	btn_back = btn_new(vecnew(4, 42), vecnew(60, 8), -1, vecnew(0, 0), 'Back', () ->
+		close_all_menus()
+		select_btn(btn_play)
+		exit_menu_holding_4 = true
+	)
+
 	menu_add_ui(menu_kb_controller, btn_kb)
 	menu_add_ui(menu_kb_controller, btn_controller)
+	menu_add_ui(menu_kb_controller, btn_back)
+
 	menu_kb_controller.no_menu_btn = btn_play
 	if using_kb
 		btn_kb.highlight = true
 	else
 		btn_controller.highlight = true
 
-	btn_connect(btn_back, btn_kb, DOWN)
 	btn_connect(btn_kb, btn_controller, DOWN)
+	btn_connect(btn_controller, btn_back, DOWN)
 
 kb_controller = ->
+	ui_list_update()
+
+	cls(13)
+	ui_list_draw()
+
+	print('Are you using keyboard or controller?', 4, 4, 12, false, 1, true)
 
 title_draw = ->
 	if menu_opening != nil
@@ -866,7 +907,7 @@ btn_update = (i, btn) ->
 	if btn_selected != btn
 		return
 
-	if btnp(4)
+	if btnp(4) and not exit_menu_holding_4
 		btn.clicked_func(btn)
 
 	if btn_switched
@@ -900,7 +941,7 @@ btn_draw = (btn) ->
 		txt_pos = vecadd(draw_pos, vecnew(8, 1))
 
 	bkg_color = 12
-	shading_color = 14
+	shading_color = 15
 	if btn.highlight
 		bkg_color = 4
 		shading_color = 3
