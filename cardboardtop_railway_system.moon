@@ -10,6 +10,7 @@ export get_camera_limit
 export btn_str
 
 export game_init
+export init_buildings
 export start_init
 export kb_controller_init
 
@@ -263,11 +264,11 @@ BUILDING_FARM = 4
 BUILDING_ARCADE = 5
 
 RAIL_COST = 1
-RESTAURANT_COST = 12
-STATION_COST = 20
-REFILL_COST = 3
-FARM_COST = 12
-ARCADE_COST = 24
+RESTAURANT_COST = 8
+STATION_COST = 6
+REFILL_COST = 2
+FARM_COST = 4
+ARCADE_COST = 10
 
 rail_inventory = 0
 station_inventory = 0
@@ -362,10 +363,9 @@ game_init = ->
 
 	cursor.pos = vecnew(8, 8)
 
-	money_count = 100000
-	rail_inventory = 0
-	restaurant_inventory = 0
-	station_inventory = 0
+	money_count = 10 + RESTAURANT_COST
+	rail_inventory = 18
+	station_inventory = 2
 	refill_inventory = 0
 	farm_inventory = 0
 	arcade_inventory = 0
@@ -384,6 +384,16 @@ game_init = ->
 		for x = 1, map_sz.x
 			table.insert(rail_grid[y], -1)
 
+	init_buildings()
+
+init_buildings = ->
+	for i = 2, 19
+		rail_new(vecnew(i*8, 6*8))
+
+	station_new(vecnew(8, 6*8))
+	station_new(vecnew(20*8, 6*8))
+	restaurant_new(vecnew(13*8, 4*8))
+
 start_init = ->
 	close_all_menus()
 	entity_list = {}
@@ -391,6 +401,20 @@ start_init = ->
 	rail_grid = {}
 
 	create_start_screen_menu()
+
+	money_count = RESTAURANT_COST
+	rail_inventory = 18
+	station_inventory = 2
+	refill_inventory = 0
+	farm_inventory = 0
+	arcade_inventory = 0
+
+	for y = 1, map_sz.y
+		table.insert(rail_grid, {})
+		for x = 1, map_sz.x
+			table.insert(rail_grid[y], -1)
+
+	init_buildings()
 
 kb_controller_init = ->
 	close_all_menus()
@@ -448,10 +472,13 @@ game = ->
 	ui_list_draw()
 
 start = ->
+	entity_list_update()
 	ui_list_update()
 
 	cls(13)
 	bkg_draw()
+	entity_list_draw()
+	draw_list_draw()
 	title_draw()
 	ui_list_draw()
 
@@ -1428,7 +1455,7 @@ station_new = (pos) ->
 	if not can_place(grid_pos, vecnew(8, 8))
 		return
 
-	if cursor.pos.x != 8 and cursor.pos.x != map_sz.x * 8
+	if pos.x != 8 and pos.x != map_sz.x * 8
 		return
 
 	if station_inventory != 0
@@ -1469,7 +1496,7 @@ station_create_train = (station) ->
 	if not station.have_path
 		return
 
-	if (t-station.created_at) % (60*8) != 0
+	if (t-station.created_at) % (60*12) != 0
 		return
 
 	grid_pos = vecdivdiv(station.pos, 8)
@@ -1679,7 +1706,7 @@ train_check_path_all = ->
 			continue
 		v.path = train_get_path(v)
 
-RESTAURANT_SERVE_COUNT_MAX = 8
+RESTAURANT_SERVE_COUNT_MAX = 16
 SHOW_MONEY_MARK_FOR = 60
 restaurant_new = (pos) ->
 	if money_count < RESTAURANT_COST
@@ -1729,6 +1756,7 @@ restaurant_serve = (restaurant) ->
 			continue
 		v.served = true
 		money_count += 1
+		money_fullfilled += 1
 		restaurant.show_money_mark = SHOW_MONEY_MARK_FOR
 		restaurant.serve_count -= 1
 
@@ -1794,7 +1822,7 @@ refill_draw = (refill) ->
 	draw_pos = get_draw_pos(refill.pos)
 	draw(13, draw_pos.x, draw_pos.y - 8, 0, 1, 0, 0, 1, 2, refill.pos, 0)
 
-FARM_CREATE_REFILL_COOLDOWN = 32 * 60
+FARM_CREATE_REFILL_COOLDOWN = 16 * 60
 farm_new = (pos) ->
 	if money_count < FARM_COST and farm_inventory == 0
 		return
@@ -1847,6 +1875,7 @@ farm_create_refill = (farm) ->
 
 	i = rndi(1, #pos_list)
 	refill_new(vecadd(farm.pos, vecmul(pos_list[i], 8)))
+	money_count += 2
 
 farm_draw = (farm) ->
 	draw_pos = get_draw_pos(farm.pos)
