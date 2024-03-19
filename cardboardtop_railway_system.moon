@@ -46,6 +46,7 @@ export dpad_cursor_update
 
 export game_controls_draw
 export game_ui_draw
+export camera_arrows_draw
 export bottom_left_card_draw
 export help_text_draw
 export help_text_draw_at
@@ -397,7 +398,7 @@ game = ->
 	draw_list_draw()
 	game_controls_draw()
 	game_ui_draw()
-	ui_list_draw()	
+	ui_list_draw()
 
 start = ->
 	ui_list_update()
@@ -772,11 +773,22 @@ game_controls_draw = ->
 	cursor_draw()
 
 game_ui_draw = ->
-	spr(65, STATS_POS.x + 2, STATS_POS.y + 2, 0, 1, 0, 0, 1, 1)
-	print(money_count, STATS_POS.x + 8, STATS_POS.y + 1, 12, false, 1, true)
+	if dpad_mode == DPAD_CURSOR
+		spr(65, STATS_POS.x + 2, STATS_POS.y + 2, 0, 1, 0, 0, 1, 1)
+		print(money_count, STATS_POS.x + 8, STATS_POS.y + 1, 12, false, 1, true)
 
 	bottom_left_card_draw()
 	help_text_draw()
+	camera_arrows_draw()
+
+camera_arrows_draw = ->
+	if dpad_mode != DPAD_CAMERA
+		return
+
+	spr(81, WINDOW_W/2 - 4, 0, 0)
+	spr(82, WINDOW_W/2 - 4, WINDOW_H - 8, 0)
+	spr(83, 0, WINDOW_H/2 - 4, 0)
+	spr(84, WINDOW_W - 8, WINDOW_H/2 - 4, 0)
 
 help_text_draw = () ->
 	x = WINDOW_W - 4
@@ -1980,6 +1992,10 @@ find_in_list = (list, item) ->
 -- 077:d0333306d0222206d0233206d0222207d0000007d0000007ddddddd7eeeeeee7
 -- 078:6666666666666666666666667777777777777777777777777777777777777777
 -- 080:2200000022000000000000000000000000000000000000000000000000000000
+-- 081:0000000000000000000c000000ccc0000ccccc00000000000000000000000000
+-- 082:0000000000000000000000000ccccc0000ccc000000c00000000000000000000
+-- 083:000000000000c000000cc00000ccc000000cc0000000c0000000000000000000
+-- 084:00000000000c0000000cc000000ccc00000cc000000c00000000000000000000
 -- </TILES>
 
 -- <MAP>
