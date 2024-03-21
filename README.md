@@ -1,6 +1,6 @@
 Art and codes by TripleCubes
 
-Written in 4 days for Mini Jam 154: Travel
+Written in 5 days for Mini Jam 154: Travel
 
 Limitation: All in a box
 
