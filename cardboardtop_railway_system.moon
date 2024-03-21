@@ -1918,6 +1918,9 @@ farm_rm_xy = (grid_pos) ->
 			continue
 		if not rect_collide(vecmul(grid_pos, 8), vecnew(8, 8), v.pos, v.sz)
 			continue
+		if v.rm_next_frame == true
+			continue
+
 		v.rm_next_frame = true
 		farm_inventory += 1
 		return
